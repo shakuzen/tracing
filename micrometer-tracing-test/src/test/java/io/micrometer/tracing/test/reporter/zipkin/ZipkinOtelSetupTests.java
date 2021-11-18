@@ -14,21 +14,28 @@
  * limitations under the License.
  */
 
-package io.micrometer.tracing.reporter.zipkin;
+package io.micrometer.tracing.test.reporter.zipkin;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.logging.LoggingMeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.core.util.internal.logging.InternalLogger;
 import io.micrometer.core.util.internal.logging.InternalLoggerFactory;
+import io.micrometer.tracing.test.SampleTestRunner;
+import io.micrometer.tracing.test.reporter.zipkin.ZipkinOtelSetup;
 import io.opentelemetry.exporter.zipkin.ZipkinSpanExporter;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import zipkin2.reporter.urlconnection.URLConnectionSender;
 
 import static org.assertj.core.api.BDDAssertions.then;
@@ -48,13 +55,7 @@ class ZipkinOtelSetupTests {
 
     @Test
     void should_register_a_span_in_zipkin() throws InterruptedException {
-        ZipkinOtelSetup setup = ZipkinOtelSetup.builder().zipkinSpanExporter(() ->
-                ZipkinSpanExporter.builder()
-                        .setSender(URLConnectionSender.newBuilder()
-                                .connectTimeout(1000)
-                                .readTimeout(1000)
-                                .endpoint(this.server.url("/") + "api/v2/spans").build())
-                        .build()).register(this.simpleMeterRegistry);
+        ZipkinOtelSetup setup = ZipkinOtelSetup.builder().zipkinUrl(this.server.url("/").toString()).register(this.simpleMeterRegistry);
 
         ZipkinOtelSetup.run(setup, __ -> {
             Timer.Sample sample = Timer.start(simpleMeterRegistry);
@@ -69,4 +70,35 @@ class ZipkinOtelSetupTests {
         then(request).isNotNull();
         then(request.getPath()).isEqualTo("/api/v2/spans");
     }
+
+
+
+    static class SpringIntegrationObservabilitySample extends SampleTestRunner {
+
+        public SpringIntegrationObservabilitySample(SamplerRunnerConfig config) {
+            super(config, new LoggingMeterRegistry());
+        }
+
+        @Override
+        public Runnable yourCode() {
+            return () -> {
+                Timer.Sample sample1 = Timer.start(meterRegistry);
+                log.info("New sample created");
+                sample1.stop(Timer.builder("the-name1"));
+
+                Timer.Sample sample2 = Timer.start(meterRegistry);
+                log.info("New sample created");
+                sample2.stop(Timer.builder("the-name2"));
+
+                Timer.Sample sample3 = Timer.start(meterRegistry);
+                log.info("New sample created");
+                sample3.stop(Timer.builder("the-name3"));
+
+                Timer.Sample sample4 = Timer.start(meterRegistry);
+                log.info("New sample created");
+                sample4.stop(Timer.builder("the-name4"));
+            };
+        }
+    }
+
 }

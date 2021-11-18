@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.micrometer.tracing.reporter.wavefront;
+package io.micrometer.tracing.test.reporter.wavefront;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -23,6 +23,7 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.core.util.internal.logging.InternalLogger;
 import io.micrometer.core.util.internal.logging.InternalLoggerFactory;
+import io.micrometer.tracing.test.reporter.wavefront.WavefrontOtelSetup;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.awaitility.Awaitility;
@@ -31,9 +32,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.BDDAssertions.then;
 
-class WavefrontBraveSetupTests {
+class WavefrontOtelSetupTests {
 
-    private static InternalLogger log = InternalLoggerFactory.getInstance(WavefrontBraveSetupTests.class);
+    private static InternalLogger log = InternalLoggerFactory.getInstance(WavefrontOtelSetupTests.class);
 
     SimpleMeterRegistry simpleMeterRegistry = new SimpleMeterRegistry();
 
@@ -46,13 +47,13 @@ class WavefrontBraveSetupTests {
 
     @Test
     void should_register_a_span_in_wavefront() throws InterruptedException {
-        WavefrontBraveSetup setup = WavefrontBraveSetup.builder(this.server.url("/").toString(), "token")
+        WavefrontOtelSetup setup = WavefrontOtelSetup.builder(this.server.url("/").toString(), "token")
                 .applicationName("app-name")
                 .serviceName("service-name")
                 .source("source")
                 .register(this.simpleMeterRegistry);
 
-        WavefrontBraveSetup.run(setup, __ -> {
+        WavefrontOtelSetup.run(setup, __ -> {
             Timer.Sample sample = Timer.start(simpleMeterRegistry);
             log.info("New sample created");
             sample.stop(Timer.builder("the-name"));

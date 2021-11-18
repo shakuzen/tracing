@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.micrometer.tracing.reporter.zipkin;
+package io.micrometer.tracing.test.reporter.wavefront;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -23,19 +23,18 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.core.util.internal.logging.InternalLogger;
 import io.micrometer.core.util.internal.logging.InternalLoggerFactory;
+import io.micrometer.tracing.test.reporter.wavefront.WavefrontBraveSetup;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import zipkin2.reporter.AsyncReporter;
-import zipkin2.reporter.urlconnection.URLConnectionSender;
 
 import static org.assertj.core.api.BDDAssertions.then;
 
-class ZipkinBraveSetupTests {
+class WavefrontBraveSetupTests {
 
-    private static InternalLogger log = InternalLoggerFactory.getInstance(ZipkinBraveSetupTests.class);
+    private static InternalLogger log = InternalLoggerFactory.getInstance(WavefrontBraveSetupTests.class);
 
     SimpleMeterRegistry simpleMeterRegistry = new SimpleMeterRegistry();
 
@@ -47,25 +46,24 @@ class ZipkinBraveSetupTests {
     }
 
     @Test
-    void should_register_a_span_in_zipkin() throws InterruptedException {
-        ZipkinBraveSetup setup = ZipkinBraveSetup.builder().reporter(() -> AsyncReporter
-                .builder(URLConnectionSender.newBuilder()
-                        .connectTimeout(1000)
-                        .readTimeout(1000)
-                        .endpoint(this.server.url("/") + "api/v2/spans").build())
-                .build()).register(this.simpleMeterRegistry);
+    void should_register_a_span_in_wavefront() throws InterruptedException {
+        WavefrontBraveSetup setup = WavefrontBraveSetup.builder(this.server.url("/").toString(), "token")
+                .applicationName("app-name")
+                .serviceName("service-name")
+                .source("source")
+                .register(this.simpleMeterRegistry);
 
-        ZipkinBraveSetup.run(setup, __ -> {
+        WavefrontBraveSetup.run(setup, __ -> {
             Timer.Sample sample = Timer.start(simpleMeterRegistry);
             log.info("New sample created");
             sample.stop(Timer.builder("the-name"));
         });
 
-        Awaitility.await().atMost(1, TimeUnit.SECONDS)
+        Awaitility.await().atMost(2, TimeUnit.SECONDS)
                 .untilAsserted(() -> then(this.server.getRequestCount()).isGreaterThan(0));
 
-        RecordedRequest request = this.server.takeRequest(1, TimeUnit.SECONDS);
+        RecordedRequest request = this.server.takeRequest(2, TimeUnit.SECONDS);
         then(request).isNotNull();
-        then(request.getPath()).isEqualTo("/api/v2/spans");
+        then(request.getPath()).isEqualTo("/report?f=trace");
     }
 }
