@@ -19,3 +19,16 @@ updates:
           - version-update:semver-major
           - version-update:semver-minor
     open-pull-requests-limit: 10
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: monthly
+    target-branch: "1.1.x"
+    milestone: 47
+    ignore:
+      # only upgrade patch versions
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+    open-pull-requests-limit: 5
