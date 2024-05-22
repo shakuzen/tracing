@@ -83,6 +83,9 @@ public class OtelTraceContext implements TraceContext {
             if (span != null) {
                 return span.storeInContext(Context.current());
             }
+            else {
+                return Context.current().with(Span.wrap(((OtelTraceContext) context).delegate));
+            }
         }
         return Context.current();
     }

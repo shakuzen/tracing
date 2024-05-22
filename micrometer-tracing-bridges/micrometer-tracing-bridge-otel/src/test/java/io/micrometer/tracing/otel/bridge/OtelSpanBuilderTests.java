@@ -16,6 +16,7 @@
 package io.micrometer.tracing.otel.bridge;
 
 import io.micrometer.tracing.Span;
+import io.micrometer.tracing.TraceContext;
 import io.opentelemetry.context.propagation.ContextPropagators;
 import io.opentelemetry.extension.trace.propagation.B3Propagator;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -26,16 +27,27 @@ import static org.assertj.core.api.BDDAssertions.then;
 
 class OtelSpanBuilderTests {
 
+    ArrayListSpanProcessor processor = new ArrayListSpanProcessor();
+
+    SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder()
+        .setSampler(io.opentelemetry.sdk.trace.samplers.Sampler.alwaysOn())
+        .addSpanProcessor(processor)
+        .build();
+
+    OpenTelemetrySdk openTelemetrySdk = OpenTelemetrySdk.builder()
+        .setTracerProvider(sdkTracerProvider)
+        .setPropagators(ContextPropagators.create(B3Propagator.injectingSingleHeader()))
+        .build();
+
+    io.opentelemetry.api.trace.Tracer otelTracer = openTelemetrySdk.getTracer("io.micrometer.micrometer-tracing");
+
+    OtelCurrentTraceContext otelCurrentTraceContext = new OtelCurrentTraceContext();
+
+    OtelTracer tracer = new OtelTracer(otelTracer, otelCurrentTraceContext, event -> {
+    });
+
     @Test
     void should_set_child_span_when_using_builders() {
-        SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder()
-            .setSampler(io.opentelemetry.sdk.trace.samplers.Sampler.alwaysOn())
-            .build();
-        OpenTelemetrySdk openTelemetrySdk = OpenTelemetrySdk.builder()
-            .setTracerProvider(sdkTracerProvider)
-            .setPropagators(ContextPropagators.create(B3Propagator.injectingSingleHeader()))
-            .build();
-        io.opentelemetry.api.trace.Tracer otelTracer = openTelemetrySdk.getTracer("io.micrometer.micrometer-tracing");
 
         Span.Builder builder = new OtelSpanBuilder(otelTracer).name("foo");
         Span parentSpan = OtelSpan.fromOtel(otelTracer.spanBuilder("bar").startSpan());
@@ -44,6 +56,21 @@ class OtelSpanBuilderTests {
 
         then(child.context().traceId()).isEqualTo(parentSpan.context().traceId());
         then(child.context().parentId()).isEqualTo(parentSpan.context().spanId());
+    }
+
+    @Test
+    void should_honor_parent_context_using_tracecontextbuilder() {
+        Span foo = tracer.spanBuilder().name("foo").start();
+
+        TraceContext parentCtx = tracer.traceContextBuilder()
+            .traceId(foo.context().traceId())
+            .spanId(foo.context().spanId())
+            .sampled(foo.context().sampled())
+            .build();
+
+        Span span = tracer.spanBuilder().setParent(parentCtx).name("test-span").start();
+
+        then(span.context().traceId()).isEqualTo(foo.context().traceId());
     }
 
 }
