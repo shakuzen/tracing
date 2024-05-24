@@ -98,10 +98,15 @@ public class OtelTraceContext implements TraceContext {
     @Override
     @Nullable
     public String parentId() {
-        Span span = this.span instanceof SpanFromSpanContext ? ((SpanFromSpanContext) this.span).span : this.span;
-        if (span instanceof ReadableSpan) {
-            ReadableSpan readableSpan = (ReadableSpan) span;
-            return readableSpan.toSpanData().getParentSpanId();
+        Span spanContextSpanOrSpan = this.span instanceof SpanFromSpanContext ? ((SpanFromSpanContext) this.span).span
+                : this.span;
+        if (spanContextSpanOrSpan instanceof ReadableSpan) {
+            ReadableSpan readableSpan = (ReadableSpan) spanContextSpanOrSpan;
+            String parentSpanId = readableSpan.toSpanData().getParentSpanId();
+            if (Objects.equals(Span.getInvalid().getSpanContext().getSpanId(), parentSpanId)) {
+                return null;
+            }
+            return parentSpanId;
         }
         return null;
     }
