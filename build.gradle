@@ -219,26 +219,26 @@ subprojects {
 			repositories {
 				maven {
 					name = 'CommercialSnapshot'
-					url = 'https://repo.spring.vmware.com/spring-commercial-snapshot-local'
+					url = 'https://usw1.packages.broadcom.com/artifactory/spring-enterprise-maven-dev-local'
 					credentials {
-						username findProperty('REPO_USER')
-						password findProperty('REPO_PASSWORD')
+						username findProperty('REPOSITORY_USERNAME')
+						password findProperty('REPOSITORY_PASSWORD')
 					}
 				}
 				maven {
 					name = 'CommercialRelease'
-					url = 'https://repo.spring.vmware.com/spring-commercial-release-local'
+					url = 'https://usw1.packages.broadcom.com/artifactory/spring-enterprise-maven-prod-local'
 					credentials {
-						username findProperty('REPO_USER')
-						password findProperty('REPO_PASSWORD')
+						username findProperty('REPOSITORY_USERNAME')
+						password findProperty('REPOSITORY_PASSWORD')
 					}
 				}
 			}
 		}
 
 		signing {
-			required = System.env.CIRCLE_STAGE == 'deploy'
-			useInMemoryPgpKeys(findProperty('SIGNING_KEY'), findProperty('SIGNING_PASSWORD'))
+			required = System.env.GHA_STAGE == 'deploy'
+			useInMemoryPgpKeys(findProperty('SIGNING_KEYID'), findProperty('SIGNING_KEY'), findProperty('SIGNING_PASSWORD'))
 			sign publishing.publications.nebula
 		}
 
@@ -297,11 +297,11 @@ subprojects {
 
 	repositories {
 		maven {
-			// url = 'https://repo.spring.vmware.com/spring-commercial-snapshot-local'
-			url = 'https://repo.spring.vmware.com/spring-commercial-release-local'
+			// url = 'https://usw1.packages.broadcom.com/artifactory/spring-enterprise-maven-dev-local'
+			url = 'https://usw1.packages.broadcom.com/artifactory/spring-enterprise-maven-prod-local'
 			credentials {
-				username findProperty('REPO_USER')
-				password findProperty('REPO_PASSWORD')
+				username findProperty('REPOSITORY_USERNAME')
+				password findProperty('REPOSITORY_PASSWORD')
 			}
 			content {
 				includeGroup 'io.micrometer'

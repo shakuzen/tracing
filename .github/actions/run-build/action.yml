@@ -1,0 +1,25 @@
+name: Build
+description: Setup the build and execute build task
+inputs:
+  java-version:
+    description: The Java version to use for the build
+    required: true
+  java-distribution:
+    description: The Java distribution to use for the build
+    required: false
+    default: liberica
+  develocity-access-key:
+    description: The key to authenticate with Develocity (Gradle Enterprise)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Setup Build
+      uses: ./.github/actions/setup-build
+      with:
+        java-version: ${{ inputs.java-version }}
+        java-distribution: ${{ inputs.java-distribution }}
+        develocity-access-key: ${{ inputs.develocity-access-key }}
+    - name: Build
+      shell: bash
+      run: ./gradlew build
