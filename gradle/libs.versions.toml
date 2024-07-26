@@ -23,7 +23,7 @@ testcontainers = "1.19.8"
 braveBom = "5.14.1"
 reactorBom = "2022.0.18"
 asmForPlugins = "7.3.1"
-javaFormatForPlugins = "0.0.41"
+javaFormatForPlugins = "0.0.42"
 jsr305 = "3.0.2"
 
 [libraries]
