@@ -24,7 +24,7 @@ updates:
     schedule:
       interval: monthly
     target-branch: "1.1.x"
-    milestone: 47
+    milestone: 5
     ignore:
       # only upgrade patch versions
       - dependency-name: "*"
