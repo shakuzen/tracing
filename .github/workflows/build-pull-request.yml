@@ -1,6 +1,7 @@
 name: Build Pull Request
 
-on: pull_request
+# WARNING: pull_request_target lets the workflow read secrets (unlike pull_request), don't use it in public repos!
+on: pull_request_target
 
 permissions:
   contents: read
