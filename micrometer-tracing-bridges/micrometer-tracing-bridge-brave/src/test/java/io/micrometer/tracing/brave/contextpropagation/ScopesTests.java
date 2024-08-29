@@ -46,12 +46,10 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.context.Context;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.BDDAssertions.then;
@@ -198,7 +196,7 @@ class ScopesTests {
                 }
                 else {
                     try {
-                        latch.await();
+                        latch.await(1, TimeUnit.SECONDS);
                     }
                     catch (InterruptedException e) {
                         // ignore
@@ -218,7 +216,7 @@ class ScopesTests {
             Span spanWOnNext = tracer.currentSpan();
             logger.info("[outer-doOnNext] SPAN IN ON NEXT [" + spanWOnNext + "]");
             assertInReactor(errorsInOuterOnNext, spanWOnNext, span2);
-        }).blockLast();
+        }).blockLast(Duration.ofSeconds(1));
 
         logger.info("Checking if there were no errors in reactor");
         then(errorsInFlatMap).isEmpty();
@@ -255,7 +253,7 @@ class ScopesTests {
             Observation obs4 = Observation.start("4", observationRegistry);
             try (Observation.Scope scope4 = obs4.openScope()) {
                 logger.info("FRESH SPAN AFTER [{}]", tracer.currentSpan());
-                cleanupLatch.await();
+                cleanupLatch.await(1, TimeUnit.SECONDS);
             }
             catch (InterruptedException e) {
                 // ignore
