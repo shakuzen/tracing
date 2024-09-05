@@ -15,15 +15,12 @@
  */
 package io.micrometer.tracing.otel.contextpropagation;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
-
 import io.micrometer.common.util.internal.logging.InternalLogger;
 import io.micrometer.common.util.internal.logging.InternalLoggerFactory;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.observation.contextpropagation.ObservationThreadLocalAccessor;
+import io.micrometer.observation.tck.TestObservationRegistry;
 import io.micrometer.tracing.BaggageInScope;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
@@ -44,6 +41,10 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Hooks;
 import reactor.core.publisher.Mono;
 import reactor.util.context.Context;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.BDDAssertions.then;
 
@@ -71,7 +72,7 @@ class ScopesTests {
 
     DefaultTracingObservationHandler handler = new DefaultTracingObservationHandler(tracer);
 
-    ObservationRegistry observationRegistry = ObservationRegistry.create();
+    ObservationRegistry observationRegistry = TestObservationRegistry.create();
 
     @BeforeEach
     void setup() {
