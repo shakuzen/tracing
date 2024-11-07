@@ -1,7 +1,7 @@
 [versions]
 micrometer = "1.11.13"
 micrometerContextPropagation="1.0.6"
-junit = "5.10.3"
+junit = "5.10.5"
 javaxServlet="4.0.1"
 jmh="1.37"
 jakartaWeb="9.1.0"
@@ -19,9 +19,9 @@ mockito = "5.5.0"
 wiremock = "2.35.2"
 testcontainers = "1.19.8"
 braveBom = "5.14.1"
-reactorBom = "2022.0.21"
+reactorBom = "2022.0.22"
 asmForPlugins = "7.3.1"
-javaFormatForPlugins = "0.0.42"
+javaFormatForPlugins = "0.0.43"
 jsr305 = "3.0.2"
 aspectjweaver = "1.8.14"
 spring = "5.3.37"
@@ -65,5 +65,5 @@ plugin-nebulaRelease = { module = "com.netflix.nebula:nebula-release-plugin", ve
 plugin-nebulaPublishing = { module = "com.netflix.nebula:nebula-publishing-plugin", version = "20.3.0" }
 plugin-nebulaProject = { module = "com.netflix.nebula:nebula-project-plugin", version = "10.1.5" }
 plugin-noHttp = { module = "io.spring.nohttp:nohttp-gradle", version = "0.0.11" }
-plugin-javaformat = { module = "io.spring.javaformat:spring-javaformat-gradle-plugin", version = "0.0.42" }
+plugin-javaformat = { module = "io.spring.javaformat:spring-javaformat-gradle-plugin", version = "0.0.43" }
 plugin-jmh = { module = "me.champeau.jmh:jmh-gradle-plugin", version = "0.7.2" }
