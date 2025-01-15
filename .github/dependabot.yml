@@ -4,43 +4,44 @@ updates:
     directory: "/"
     target-branch: "1.0.x" # oldest supported branch
     schedule:
-      interval: "weekly"
+      interval: "monthly"
 # Non-build dependencies; target every supported branch
   - package-ecosystem: gradle
     directory: "/"
     schedule:
-      interval: daily
+      interval: monthly
     target-branch: "1.0.x"
-    milestone: 13
+    milestone: 1
     ignore:
       # only upgrade patch versions
       - dependency-name: "*"
         update-types:
           - version-update:semver-major
           - version-update:semver-minor
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 30
   - package-ecosystem: gradle
     directory: "/"
     schedule:
-      interval: daily
+      interval: monthly
     target-branch: "1.1.x"
-    milestone: 14
+    milestone: 5
     ignore:
       # only upgrade patch versions
       - dependency-name: "*"
         update-types:
           - version-update:semver-major
           - version-update:semver-minor
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 30
   - package-ecosystem: gradle
     directory: "/"
     schedule:
-      interval: daily
-    target-branch: "main"
-    milestone: 27
+      interval: monthly
+    target-branch: "1.2.x"
+    milestone: 11
     ignore:
-      # upgrade minor and patch versions on main
+      # only upgrade patch versions
       - dependency-name: "*"
         update-types:
           - version-update:semver-major
-    open-pull-requests-limit: 10
+          - version-update:semver-minor
+    open-pull-requests-limit: 30

@@ -1,0 +1,35 @@
+name: Setup Build
+description: Prepare action for build
+inputs:
+  java-version:
+    description: The Java version to use for the build
+    required: true
+  java-distribution:
+    description: The Java distribution to use for the build
+    required: false
+    default: liberica
+  develocity-access-key:
+    description: The key to authenticate with Develocity (Gradle Enterprise)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: ${{ inputs.java-distribution }}
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        validate-wrappers: true
+        develocity-access-key: ${{ inputs.develocity-access-key }}
+    - name: Build Info
+      shell: bash
+      run: |
+        echo 'Triggered by: ${{ github.event_name }}'
+        echo 'Ref type: ${{ github.ref_type }}'
+        echo 'Ref name: ${{ github.ref_name }}'
+        echo 'Ref: ${{ github.ref }}'
+        echo 'Commit: ${{ github.sha }}'
+        ./gradlew --version

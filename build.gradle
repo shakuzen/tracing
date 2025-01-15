@@ -12,7 +12,6 @@ buildscript {
 		classpath libs.plugin.nebulaProject
 		classpath libs.plugin.nebulaInfo
 		classpath libs.plugin.noHttp
-		classpath libs.plugin.nexusPublish
 		classpath libs.plugin.javaformat
 		classpath libs.plugin.jmh
 
@@ -45,7 +44,6 @@ def releaseStage = findProperty('release.stage')
 apply plugin: 'nebula.release'
 release.defaultVersionStrategy = nebula.plugin.release.git.opinion.Strategies.SNAPSHOT
 
-apply plugin: 'io.github.gradle-nexus.publish-plugin'
 apply from: 'dependencies.gradle'
 
 allprojects {
@@ -235,27 +233,27 @@ subprojects {
 			}
 			repositories {
 				maven {
-					name = 'Snapshot'
-					url = 'https://repo.spring.io/snapshot'
+					name = 'CommercialSnapshot'
+					url = 'https://usw1.packages.broadcom.com/artifactory/spring-enterprise-maven-dev-local'
 					credentials {
-						username findProperty('SNAPSHOT_REPO_USER')
-						password findProperty('SNAPSHOT_REPO_PASSWORD')
+						username findProperty('REPOSITORY_USERNAME')
+						password findProperty('REPOSITORY_PASSWORD')
 					}
 				}
 				maven {
-					name = 'Milestone'
-					url = 'https://repo.spring.io/milestone'
+					name = 'CommercialRelease'
+					url = 'https://usw1.packages.broadcom.com/artifactory/spring-enterprise-maven-prod-local'
 					credentials {
-						username findProperty('MILESTONE_REPO_USER')
-						password findProperty('MILESTONE_REPO_PASSWORD')
+						username findProperty('REPOSITORY_USERNAME')
+						password findProperty('REPOSITORY_PASSWORD')
 					}
 				}
 			}
 		}
 
 		signing {
-			required = System.env.CIRCLE_STAGE == 'deploy'
-			useInMemoryPgpKeys(findProperty('SIGNING_KEY'), findProperty('SIGNING_PASSWORD'))
+			required = System.env.GHA_STAGE == 'deploy'
+			useInMemoryPgpKeys(findProperty('SIGNING_KEYID'), findProperty('SIGNING_KEY'), findProperty('SIGNING_PASSWORD'))
 			sign publishing.publications.nebula
 		}
 
@@ -313,22 +311,28 @@ subprojects {
 	description = 'Facade over tracing concepts'
 
 	repositories {
-		mavenCentral()
+		maven {
+			// url = 'https://usw1.packages.broadcom.com/artifactory/spring-enterprise-maven-dev-local'
+			url = 'https://usw1.packages.broadcom.com/artifactory/spring-enterprise-maven-prod-local'
+			credentials {
+				username findProperty('REPOSITORY_USERNAME')
+				password findProperty('REPOSITORY_PASSWORD')
+			}
+			content {
+				includeGroup 'io.micrometer'
+			}
+		}
+		mavenCentral {
+			// micrometer-tracing-test uses reactor-core-micrometer and Gradle wants to download the
+			// "older" Micrometer BOM that reactor-core-micrometer imports even if that version will be overridden.
+			// content {
+			// 	excludeGroup 'io.micrometer'
+			// }
+		}
 	}
 
 	def check = tasks.findByName('check')
 	if (check) project.rootProject.tasks.releaseCheck.dependsOn check
-}
-
-nexusPublishing {
-	repositories {
-		mavenCentral {
-			nexusUrl.set(uri('https://s01.oss.sonatype.org/service/local/'))
-			snapshotRepositoryUrl.set(uri('https://repo.spring.io/snapshot/')) // not used but necessary for the plugin
-			username = findProperty('MAVEN_CENTRAL_USER')
-			password = findProperty('MAVEN_CENTRAL_PASSWORD')
-		}
-	}
 }
 
 wrapper {

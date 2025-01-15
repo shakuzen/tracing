@@ -1,0 +1,66 @@
+name: Build Pull Request
+
+# WARNING: pull_request_target lets the workflow read secrets (unlike pull_request), don't use it in public repos!
+on: pull_request_target
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g"'
+  ORG_GRADLE_PROJECT_REPOSITORY_USERNAME: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_USERNAME }}
+  ORG_GRADLE_PROJECT_REPOSITORY_PASSWORD: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_PASSWORD }}
+
+jobs:
+  build:
+    runs-on: ubuntu22-8-32
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        uses: ./.github/actions/run-build
+        with:
+          java-version: 21
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Docker Test
+        run: ./gradlew dockerTest
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
+
+  build-jdk11:
+    runs-on: ubuntu22-8-32
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        uses: ./.github/actions/run-build
+        with:
+          java-version: 11
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
+
+  build-jdk17:
+    runs-on: ubuntu22-8-32
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        uses: ./.github/actions/run-build
+        with:
+          java-version: 17
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
