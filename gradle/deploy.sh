@@ -1,31 +1,31 @@
 #!/bin/bash -e
-# This script will build the project.
-SWITCHES="-s --console=plain -x test"
-# circleci does not like multi-line values so they are base64 encoded
-ORG_GRADLE_PROJECT_SIGNING_KEY="$(echo "$ORG_GRADLE_PROJECT_SIGNING_KEY" | base64 -d)"
+# This script deploys the project.
 
-if [ $CIRCLE_PR_NUMBER ]; then
-  echo -e "WARN: Should not be here => Found Pull Request #$CIRCLE_PR_NUMBER => Branch [$CIRCLE_BRANCH]"
+SWITCHES="-s --console=plain -x test"
+
+if [ -z "$GHA_REF_TYPE" ]; then
+  echo -e "WARN: Should not be here => Reference Type ['$GHA_REF_TYPE'], Reference Name ['$GHA_REF_NAME'], Full Reference ['$GHA_REF'], Commit ['$GHA_COMMIT']"
   echo -e "Not attempting to publish"
-elif [ -z $CIRCLE_TAG ]; then
-  echo -e "Publishing Snapshot => Branch ['$CIRCLE_BRANCH']"
-  ./gradlew -Prelease.stage=SNAPSHOT snapshot publishNebulaPublicationToSnapshotRepository $SWITCHES
-elif [ $CIRCLE_TAG ]; then
-  echo -e "Publishing Release => Branch ['$CIRCLE_BRANCH'] Tag ['$CIRCLE_TAG']"
-  case "$CIRCLE_TAG" in
+elif [ "$GHA_REF_TYPE" = 'branch' ]; then
+  echo -e "Publishing Snapshot => Branch ['$GHA_REF_NAME'], Full Reference ['$GHA_REF'], Commit ['$GHA_COMMIT']"
+  ./gradlew -Prelease.stage=SNAPSHOT snapshot publishNebulaPublicationToCommercialSnapshotRepository $SWITCHES
+elif [ "$GHA_REF_TYPE" = 'tag' ]; then
+  echo -e "Publishing Release => Tag ['$GHA_REF_NAME'], Full Reference ['$GHA_REF'], Commit ['$GHA_COMMIT']"
+  case "$GHA_REF_NAME" in
   *-M*)
-    ./gradlew -Prelease.disableGitChecks=true -Prelease.useLastTag=true -Prelease.stage=milestone candidate publishNebulaPublicationToMilestoneRepository $SWITCHES
+    echo -e "WARN: Milestone releases are disabled"
+    echo -e "Not attempting to publish"
     ;;
   *-RC*)
-     # -Prelease.stage=milestone instead of rc (should be rc), probably related to this bug: https://github.com/nebula-plugins/nebula-release-plugin/issues/213
-    ./gradlew -Prelease.disableGitChecks=true -Prelease.useLastTag=true -Prelease.stage=milestone candidate publishNebulaPublicationToMilestoneRepository $SWITCHES
+    echo -e "WARN: RC releases are disabled"
+    echo -e "Not attempting to publish"
     ;;
   *)
-    ./gradlew -Prelease.disableGitChecks=true -Prelease.useLastTag=true -Prelease.stage=final final publishNebulaPublicationToMavenCentralRepository closeAndReleaseMavenCentralStagingRepository $SWITCHES
+    ./gradlew -Prelease.disableGitChecks=true -Prelease.useLastTag=true -Prelease.stage=final final publishNebulaPublicationToCommercialReleaseRepository $SWITCHES
     ;;
   esac
 else
-  echo -e "WARN: Should not be here => Branch ['$CIRCLE_BRANCH'] Tag ['$CIRCLE_TAG'] Pull Request ['$CIRCLE_PR_NUMBER']"
+  echo -e "WARN: Should not be here => Reference Type ['$GHA_REF_TYPE'], Reference Name ['$GHA_REF_NAME'], Full Reference ['$GHA_REF'], Commit ['$GHA_COMMIT']"
   echo -e "Not attempting to publish"
 fi
 
