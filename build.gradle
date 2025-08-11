@@ -336,7 +336,7 @@ subprojects {
 }
 
 wrapper {
-	gradleVersion = '8.14'
+	gradleVersion = '8.14.3'
 }
 
 defaultTasks 'build'
