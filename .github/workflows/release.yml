@@ -21,7 +21,7 @@ jobs:
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Build
@@ -40,7 +40,7 @@ jobs:
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Build
@@ -57,7 +57,7 @@ jobs:
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Build
@@ -75,7 +75,7 @@ jobs:
     needs: [ build, build-jdk11, build-jdk17 ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Deploy
