@@ -46,10 +46,18 @@ The former can group handlers and the latter can be chosen to (for example) run 
 
 To make https://docs.micrometer.io/context-propagation/reference/[Context Propagation] work with Micrometer Tracing, you need to manually register the proper `ThreadLocalAccessor`, as follows:
 
+.Thread Local Accessors Setup
 [source,java,subs=+attributes]
------
-include::{include-java}/tracing/TracingConfiguringTests.java[tags=thread_local_accessors,indent=0]
------
+----
+include::{include-integration-tests}/src/test/java/io/micrometer/tracing/test/contextpropagation/AbstractObservationAwareSpanThreadLocalAccessorTests.java[tags=setup,indent=0]
+include::{include-integration-tests}/src/test/java/io/micrometer/tracing/test/contextpropagation/AbstractObservationAwareSpanThreadLocalAccessorTests.java[tags=setup_accessors,indent=0]
+----
+
+.Reactor Context Propagation with Baggage
+[source,java,subs=+attributes]
+----
+include::{include-integration-tests}/src/test/java/io/micrometer/tracing/test/contextpropagation/AbstractObservationAwareSpanThreadLocalAccessorTests.java[tags=docs,indent=0]
+----
 
 The `ObservationAwareSpanThreadLocalAccessor` is required to propagate manually created spans (not the ones that are governed by Observations). The `ObservationAwareBaggageThreadLocalAccessor` is required to propagate baggage created by the user.
 

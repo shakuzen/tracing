@@ -1,0 +1,67 @@
+= Micrometer Tracing Baggage API
+
+Traces connect from application to application by using header propagation.
+Besides trace identifiers, additional metadata (called `Baggage`) can be propagated from service to service.
+Micrometer Tracing provides an API to create and manage Baggage.
+
+Here are some examples of how to use the Baggage API:
+
+There are two ways in which you can retrieve Baggage - either when a span is in scope or by passing the span context explicitly.
+
+.Span in scope baggage
+[source,java,subs=+attributes]
+----
+include::{include-bridges-java}/micrometer-tracing-bridge-brave/src/test/java/io/micrometer/tracing/brave/bridge/BraveTracingApiTests.java[tags=baggage_in_scope,indent=0]
+----
+
+.Baggage with explicit span context
+[source,java,subs=+attributes]
+----
+include::{include-bridges-java}/micrometer-tracing-bridge-brave/src/test/java/io/micrometer/tracing/brave/bridge/BraveTracingApiTests.java[tags=baggage_with_explicit_span_context,indent=0]
+----
+
+.Baggage is null when not in the scope of a span
+[source,java,subs=+attributes]
+----
+include::{include-bridges-java}/micrometer-tracing-bridge-brave/src/test/java/io/micrometer/tracing/brave/bridge/BraveTracingApiTests.java[tags=baggage_out_of_scope,indent=0]
+----
+
+IMPORTANT: For Brave, remember to set up the `PropagationFactory` so that it contains the baggage fields that you will be using in your code. The following example shows the setup.
+
+.Brave PropagationFactory setup for Baggage
+[source,java,subs=+attributes]
+----
+include::{include-java}/tracing/TracingApiTests.java[tags=baggage_brave_setup,indent=0]
+----
+
+== Baggage with Micrometer Observation API
+
+The Micrometer Observation API has no notion of baggage.
+If you set up a `BaggageManager` to have baggage fields configured and configure the `DefaultTracingObservationHandler`, baggage propagation for the configured keys happens automatically with Observation scoping.
+Low and high cardinality key-values set on the Observation will be put in scope as baggage when the Observation is put in scope.
+
+Below you can find example of such setup with the OpenTelemetry `BaggageManager`.
+
+.Baggage Manager Setup
+[source,java,subs=+attributes]
+----
+include::{include-bridges-java}/micrometer-tracing-bridge-otel/src/test/java/io/micrometer/tracing/otel/bridge/BaggageTests.java[tags=baggageManager,indent=0]
+----
+
+.Observation Registry Setup
+[source,java,subs=+attributes]
+----
+include::{include-bridges-java}/micrometer-tracing-bridge-otel/src/test/java/io/micrometer/tracing/otel/bridge/BaggageTests.java[tags=observationRegistrySetup,indent=0]
+----
+
+.Observation with Baggage
+[source,java,subs=+attributes]
+----
+include::{include-bridges-java}/micrometer-tracing-bridge-otel/src/test/java/io/micrometer/tracing/otel/bridge/BaggageTests.java[tags=observation,indent=0]
+----
+
+.Observation Scope with Baggage
+[source,java,subs=+attributes]
+----
+include::{include-bridges-java}/micrometer-tracing-bridge-otel/src/test/java/io/micrometer/tracing/otel/bridge/BaggageTests.java[tags=observationScope,indent=0]
+----

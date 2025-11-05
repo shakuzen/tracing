@@ -97,7 +97,7 @@ class BaggageTests {
     // There will be 3 baggage keys in total, 2 for remote fields and 1 as tag field
     OtelBaggageManager otelBaggageManager = new OtelBaggageManager(otelCurrentTraceContext,
             Arrays.asList(KEY_1, OBSERVATION_BAGGAGE_KEY), Collections.singletonList(TAG_KEY));
-
+    // pass this BaggageManager to the OtelTracer constructor
     // end::baggageManager[]
 
     ContextPropagators contextPropagators = ContextPropagators
@@ -312,6 +312,54 @@ class BaggageTests {
         then(spanExporter.getFinishedSpanItems()).hasSize(1);
         SpanData spanData = spanExporter.getFinishedSpanItems().get(0);
         then(spanData.getAttributes().get(AttributeKey.stringKey(TAG_KEY))).isEqualTo(TAG_VALUE);
+    }
+
+    @Test
+    void removeSetBaggageWithNull() {
+        Map<String, String> carrier = new HashMap<>();
+        carrier.put(KEY_1, VALUE_1);
+
+        // WHEN
+        Span extractedSpan = propagator.extract(carrier, Map::get).start();
+
+        // THEN
+        try (Tracer.SpanInScope spanInScope = tracer.withSpan(extractedSpan)) {
+            then(tracer.getBaggage(KEY_1).get(extractedSpan.context())).isEqualTo(VALUE_1);
+            try (BaggageInScope baggageInScope = tracer.getBaggage(KEY_1).makeCurrent(null)) {
+                then(baggageInScope.get()).isNull();
+            }
+        }
+    }
+
+    @Test
+    void baggageWithObservationApiWithRemoteFieldsSetNull() {
+        Observation observation = Observation.start("foo", observationRegistry)
+            .lowCardinalityKeyValue(KEY_1, TAG_VALUE)
+            .highCardinalityKeyValue(OBSERVATION_BAGGAGE_KEY, OBSERVATION_BAGGAGE_VALUE);
+        then(tracer.getBaggage(KEY_1).get()).isNull();
+        then(tracer.getBaggage(OBSERVATION_BAGGAGE_KEY).get()).isNull();
+
+//        try (Scope scope = observation.openScope()) {
+//            then(tracer.getBaggage(KEY_1).get()).isEqualTo(TAG_VALUE);
+//            try (BaggageInScope ignore = tracer.getBaggage(KEY_1).makeCurrent(null)) {
+//                Map<String, String> carrier = new HashMap<>();
+//                propagator.inject(tracer.currentTraceContext().context(), carrier, Map::put);
+//
+//                System.out.println(carrier);
+//            }
+//            then(tracer.getBaggage(OBSERVATION_BAGGAGE_KEY).get()).isEqualTo(OBSERVATION_BAGGAGE_VALUE);
+//        }
+
+        then(tracer.currentSpan()).isNull();
+        then(tracer.getBaggage(KEY_1).get()).isNull();
+        then(tracer.getBaggage(OBSERVATION_BAGGAGE_KEY).get()).isNull();
+        observation.stop();
+
+        then(spanExporter.getFinishedSpanItems()).hasSize(1);
+        SpanData spanData = spanExporter.getFinishedSpanItems().get(0);
+        then(spanData.getAttributes().get(AttributeKey.stringKey(KEY_1))).isEqualTo(TAG_VALUE);
+        then(spanData.getAttributes().get(AttributeKey.stringKey(OBSERVATION_BAGGAGE_KEY)))
+            .isEqualTo(OBSERVATION_BAGGAGE_VALUE);
     }
 
 }

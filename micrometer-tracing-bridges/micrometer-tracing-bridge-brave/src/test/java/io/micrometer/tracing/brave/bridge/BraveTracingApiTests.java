@@ -225,6 +225,7 @@ class BraveTracingApiTests {
         Span span = tracer.nextSpan().name("parent").start();
 
         // Assuming that there's a span in scope...
+        // tag::baggage_in_scope[]
         try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
 
             try (BaggageInScope baggageForSpanInScopeOne = tracer.createBaggageInScope("from_span_in_scope 1",
@@ -239,8 +240,10 @@ class BraveTracingApiTests {
                 then(tracer.getBaggage("from_span_in_scope 2").get()).as("[In scope] Baggage 2").isEqualTo("value 2");
             }
         }
+        // end::baggage_in_scope[]
 
         // Assuming that you have a handle to the span
+        // tag::baggage_with_explicit_span_context[]
         try (BaggageInScope baggageForExplicitSpan = tracer.createBaggageInScope(span.context(), "from_span",
                 "value 3")) {
             then(baggageForExplicitSpan.get(span.context())).as("[Span passed explicitly] Baggage 3")
@@ -248,10 +251,12 @@ class BraveTracingApiTests {
             then(tracer.getBaggage("from_span").get(span.context())).as("[Span passed explicitly] Baggage 3")
                 .isEqualTo("value 3");
         }
+        // end::baggage_with_explicit_span_context[]
 
         // Assuming that there's no span in scope
         // When there's no span in scope, there will never be any baggage - even if you
         // make it current
+        // tag::baggage_out_of_scope[]
         try (BaggageInScope baggageFour = tracer.createBaggageInScope("from_span_in_scope 1", "value 1");) {
             then(baggageFour.get()).as("[Out of span scope] Baggage 1").isNull();
             then(tracer.getBaggage("from_span_in_scope 1").get()).as("[Out of span scope] Baggage 1").isNull();
@@ -260,8 +265,9 @@ class BraveTracingApiTests {
         then(tracer.getBaggage("from_span_in_scope 2").get()).as("[Out of scope] Baggage 2").isNull();
         then(tracer.getBaggage("from_span").get()).as("[Out of scope] Baggage 3").isNull();
 
-        // Baggage is present only within the scope
+        // Baggage outside of a span scope requires an explicit span context
         then(tracer.getBaggage("from_span").get(span.context())).as("[Out of scope - with context] Baggage 3").isNull();
+        // end::baggage_out_of_scope[]
         // end::baggage_api[]
     }
 

@@ -57,6 +57,8 @@ class OtelBaggageManagerTests {
             Span span = otelTracer.spanBuilder("foo").startSpan();
             TraceContext traceContext = OtelTraceContext.fromOtel(span.getSpanContext());
             Baggage baggage = otelBaggageManager.getBaggage(traceContext, "foo");
+            BDDAssertions.then(baggage).isNotNull();
+            BDDAssertions.then(baggage.get()).isEqualTo("bar");
             try (BaggageInScope baggageInScope = Objects.requireNonNull(baggage).makeCurrent()) {
                 BDDAssertions.then(baggage).isNotNull();
                 BDDAssertions.then(baggage.get()).isEqualTo("bar");

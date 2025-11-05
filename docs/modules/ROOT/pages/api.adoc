@@ -47,39 +47,6 @@ The following example shows how to create a Micrometer Tracing `Tracer` by using
 include::{include-java}/tracing/TracingApiTests.java[tags=otel_setup,indent=0]
 -----
 
-== Micrometer Tracing Baggage API
-
-Traces connect from application to application by using header propagation. Besides trace identifiers, other properties (called `Baggage`) can also be passed along with the request.
-
-The following example shows how to use the Tracer API to create and extract baggage:
-
-[source,java,subs=+attributes]
------
-include::{include-bridges-java}/micrometer-tracing-bridge-brave/src/test/java/io/micrometer/tracing/brave/bridge/BraveTracingApiTests.java[tags=baggage_api,indent=0]
------
-
-IMPORTANT: For Brave, remember to set up the `PropagationFactory` so that it contains the baggage fields that you will be using in your code. Check the following example for details:
-
-[source,java,subs=+attributes]
------
-include::{include-java}/tracing/TracingApiTests.java[tags=baggage_brave_setup,indent=0]
------
-
-=== Baggage with Micrometer Observation API
-
-If you're using Micrometer Observation API, there's no notion of baggage. If you set up a `BaggageManager` to have the baggage fields configured, we will assume that when the Observation gets put in scope, whatever low and high cardinality keys are set on the Observation will be put in scope as baggage (assuming that their names match with the configuration on the `BaggageManager`). Below you can find example of such setup with OpenTelemetry `BaggageManager`.
-
-[source,java,subs=+attributes]
------
-include::{include-bridges-java}/micrometer-tracing-bridge-otel/src/test/java/io/micrometer/tracing/otel/bridge/BaggageTests.java[tags=baggageManager,indent=0]
-
-include::{include-bridges-java}/micrometer-tracing-bridge-otel/src/test/java/io/micrometer/tracing/otel/bridge/BaggageTests.java[tags=observationRegistrySetup,indent=0]
-
-include::{include-bridges-java}/micrometer-tracing-bridge-otel/src/test/java/io/micrometer/tracing/otel/bridge/BaggageTests.java[tags=observation,indent=0]
-
-include::{include-bridges-java}/micrometer-tracing-bridge-otel/src/test/java/io/micrometer/tracing/otel/bridge/BaggageTests.java[tags=observationScope,indent=0]
------
-
 == Aspect Oriented Programming
 
 Micrometer Tracing contains `@NewSpan`, `@ContinueSpan`, and `@SpanTag` annotations that frameworks can use to create or customize spans for either specific types of methods such as those serving web request endpoints or, more generally, to all methods.
@@ -106,4 +73,3 @@ include::{include-java}/tracing/TracingSpanAspectTests.java[tags=example,indent=
 include::{include-java}/tracing/TracingSpanAspectTests.java[tags=usage_example,indent=0]
 
 -----
-

@@ -320,4 +320,17 @@ class BaggageTests {
         then(mutableSpan.tags().get(TAG_KEY)).isEqualTo(TAG_VALUE);
     }
 
+    @Test
+    void setBaggageValueToNull() {
+        // GIVEN
+        Span span = tracer.nextSpan().start();
+        try (Tracer.SpanInScope spanInScope = tracer.withSpan(span)) {
+            // WHEN
+            try (BaggageInScope baggageInScope = this.tracer.getBaggage(KEY_1).makeCurrent(null)) {
+                // THEN
+                then(tracer.getBaggage(KEY_1).get()).isNull();
+            }
+        }
+    }
+
 }
