@@ -13,7 +13,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu22-2-8
+    runs-on: ubuntu22-8-32
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
     steps:
       - name: Checkout
