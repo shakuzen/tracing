@@ -1,10 +1,10 @@
 name: Deploy Docs
 on:
-  push:
-    branches: [ main, '[0-9]+.[0-9]+.x' ]
-    tags: 'v[0-9]+.[0-9]+.[0-9]+'
-  repository_dispatch:
-    types: request-build-reference # legacy
+  # push:
+  #   branches: [ main, '[0-9]+.[0-9]+.x' ]
+  #   tags: 'v[0-9]+.[0-9]+.[0-9]+'
+  # repository_dispatch:
+  #   types: request-build-reference # legacy
   #schedule:
   #- cron: '0 10 * * *' # Once per day at 10am UTC
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: docs-build
           fetch-depth: 1

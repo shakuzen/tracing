@@ -1,0 +1,95 @@
+name: Build and Deploy Snapshot
+
+on:
+  push:
+    branches: [ 'main', '[0-9]+.[0-9]+.x' ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g"'
+  ORG_GRADLE_PROJECT_REPOSITORY_USERNAME: ${{ secrets.COMMERCIAL_ARTIFACTORY_USERNAME }}
+  ORG_GRADLE_PROJECT_REPOSITORY_PASSWORD: ${{ secrets.COMMERCIAL_ARTIFACTORY_PASSWORD }}
+
+jobs:
+  build:
+    runs-on: ubuntu22-8-32
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Build
+        uses: ./.github/actions/run-build
+        with:
+          java-version: 21
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Docker Test
+        run: ./gradlew dockerTest
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
+
+  build-jdk11:
+    runs-on: ubuntu22-8-32
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Build
+        uses: ./.github/actions/run-build
+        with:
+          java-version: 11
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
+
+  build-jdk17:
+    runs-on: ubuntu22-8-32
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Build
+        uses: ./.github/actions/run-build
+        with:
+          java-version: 17
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
+
+  deploy:
+    runs-on: ubuntu22-8-32
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    needs: [ build, build-jdk11, build-jdk17 ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Deploy
+        uses: ./.github/actions/deploy
+        with:
+          java-version: 21
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+          repository-username: ${{ secrets.COMMERCIAL_ARTIFACTORY_USERNAME }}
+          repository-password: ${{ secrets.COMMERCIAL_ARTIFACTORY_PASSWORD }}
+          signing-keyid: ${{ secrets.GPG_KEYID }}
+          signing-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          signing-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}

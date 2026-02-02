@@ -1,7 +1,6 @@
 # Micrometer Tracing Facade
 
 [![Build Status](https://circleci.com/gh/micrometer-metrics/tracing.svg?style=shield)](https://circleci.com/gh/micrometer-metrics/tracing)
-[![Apache 2.0](https://img.shields.io/github/license/micrometer-metrics/tracing.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Maven Central](https://img.shields.io/maven-central/v/io.micrometer/micrometer-tracing.svg)](https://search.maven.org/artifact/io.micrometer/micrometer-tracing)
 [![Javadocs](https://www.javadoc.io/badge/io.micrometer/micrometer-tracing.svg)](https://www.javadoc.io/doc/io.micrometer/micrometer-tracing)
 [![Revved up by Develocity](https://img.shields.io/badge/Revved%20up%20by-Develocity-06A0CE?logo=Gradle&labelColor=02303A)](https://ge.micrometer.io/)
@@ -50,6 +49,5 @@ Apply formatting with the `format` task.
 You should rely on the formatting the `format` task applies instead of your IDE's configured formatting.
 
 -------------------------------------
-_Licensed under [Apache Software License 2.0](https://www.apache.org/licenses/LICENSE-2.0)_
 
 _Sponsored by [VMware](https://tanzu.vmware.com)_
