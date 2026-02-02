@@ -16,7 +16,7 @@ env:
   ORG_GRADLE_PROJECT_REPOSITORY_PASSWORD: ${{ secrets.COMMERCIAL_ARTIFACTORY_PASSWORD }}
 
 jobs:
-  build:
+  build-jdk21:
     runs-on: ubuntu22-8-32
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
     steps:
@@ -29,8 +29,6 @@ jobs:
         with:
           java-version: 21
           develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
-      - name: Docker Test
-        run: ./gradlew dockerTest
       - name: Upload Build Reports
         uses: ./.github/actions/upload-build-reports
         if: ${{ failure() }}
@@ -69,10 +67,29 @@ jobs:
         uses: ./.github/actions/upload-build-reports
         if: ${{ failure() }}
 
+  docker-tests:
+    runs-on: ubuntu22-8-32
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Setup Build
+        uses: ./.github/actions/setup-build
+        with:
+          java-version: 21
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Docker Test
+        run: ./gradlew dockerTest
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
+
   deploy:
     runs-on: ubuntu22-8-32
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
-    needs: [ build, build-jdk11, build-jdk17 ]
+    needs: [ build-jdk21, build-jdk11, build-jdk17, docker-tests ]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
