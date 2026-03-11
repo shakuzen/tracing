@@ -12,7 +12,7 @@ permissions:
   actions: write
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_FOR_SNAPSHOTS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6

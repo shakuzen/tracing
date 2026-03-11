@@ -13,7 +13,7 @@ env:
 
 jobs:
   build-jdk21:
-    runs-on: ubuntu22-8-32
+    runs-on: ${{ vars.RUNNER_FOR_PULL_REQUESTS }}
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
     steps:
       - name: Checkout
@@ -30,7 +30,7 @@ jobs:
         if: ${{ failure() }}
 
   build-jdk11:
-    runs-on: ubuntu22-8-32
+    runs-on: ${{ vars.RUNNER_FOR_PULL_REQUESTS }}
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
     steps:
       - name: Checkout
@@ -47,7 +47,7 @@ jobs:
         if: ${{ failure() }}
 
   build-jdk17:
-    runs-on: ubuntu22-8-32
+    runs-on: ${{ vars.RUNNER_FOR_PULL_REQUESTS }}
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
     steps:
       - name: Checkout
@@ -64,7 +64,7 @@ jobs:
         if: ${{ failure() }}
 
   docker-tests:
-    runs-on: ubuntu22-8-32
+    runs-on: ${{ vars.RUNNER_FOR_PULL_REQUESTS }}
     if: ${{ github.repository_owner == 'micrometer-metrics' }}
     steps:
       - name: Checkout
