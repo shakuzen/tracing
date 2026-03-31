@@ -1,6 +1,7 @@
 dependencies {
     jmh project(':micrometer-tracing-bridge-brave')
     jmh project(':micrometer-tracing-bridge-otel')
+    jmh project(':micrometer-tracing-test')
     jmh libs.jmh
     jmh 'io.zipkin.brave:brave-tests'
 
@@ -18,4 +19,5 @@ jmh {
     iterations = 1
     duplicateClassesStrategy = DuplicatesStrategy.EXCLUDE
     zip64 = true
+    includes = ['.*ThreadLocalAccessorBenchmark.*']
 }

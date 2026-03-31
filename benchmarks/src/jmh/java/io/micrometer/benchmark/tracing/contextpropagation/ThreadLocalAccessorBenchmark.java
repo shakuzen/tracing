@@ -31,5 +31,6 @@ public class ThreadLocalAccessorBenchmark {
     public void setValueAndRestore() {
         accessor.setValue(mockSpan);
         accessor.restore(mockSpan);
+        accessor.restore(); // reset to empty state for next iteration
     }
 }
