@@ -46,7 +46,7 @@ public class ObservationAwareBaggageThreadLocalAccessor implements ThreadLocalAc
     private static final InternalLogger log = InternalLoggerFactory
         .getInstance(ObservationAwareBaggageThreadLocalAccessor.class);
 
-    final Map<Thread, BaggageAndScope> baggageInScope = new ConcurrentHashMap<>();
+    final ThreadLocal<BaggageAndScope> baggageInScope = new ThreadLocal<>();
 
     /**
      * Key under which Micrometer Tracing Baggage accessor is being registered.
@@ -80,7 +80,7 @@ public class ObservationAwareBaggageThreadLocalAccessor implements ThreadLocalAc
         Map<String, String> baggage = currentSpan != null ? tracer.getAllBaggage(currentSpan.context())
                 : tracer.getAllBaggage();
         if (log.isTraceEnabled()) {
-            log.trace("Current baggage in scope in thread local [" + baggageInScope.get(Thread.currentThread())
+            log.trace("Current baggage in scope in thread local [" + baggageInScope.get()
                     + "], current baggage from tracer [" + baggage + "]");
         }
         return (baggage == null || baggage.isEmpty()) ? null : new BaggageToPropagate(baggage);
@@ -118,7 +118,7 @@ public class ObservationAwareBaggageThreadLocalAccessor implements ThreadLocalAc
 
     @Override
     public void setValue(BaggageToPropagate value) {
-        BaggageAndScope previousScope = baggageInScope.get(Thread.currentThread());
+        BaggageAndScope previousScope = baggageInScope.get();
         if (log.isTraceEnabled()) {
             log.trace("Baggage to set [" + value + "]. Previous scope [" + previousScope + "]");
         }
@@ -131,9 +131,9 @@ public class ObservationAwareBaggageThreadLocalAccessor implements ThreadLocalAc
             return;
         }
         scope = openScopeForEachBaggageEntry(entries, span, scope);
-        baggageInScope.put(Thread.currentThread(), scopeRestoringBaggageAndScope(scope, previousScope));
+        baggageInScope.set(scopeRestoringBaggageAndScope(scope, previousScope));
         if (log.isTraceEnabled()) {
-            log.trace("Finished setting value [" + baggageInScope.get(Thread.currentThread()) + "]");
+            log.trace("Finished setting value [" + baggageInScope.get() + "]");
         }
     }
 
@@ -176,7 +176,7 @@ public class ObservationAwareBaggageThreadLocalAccessor implements ThreadLocalAc
 
     @Override
     public void setValue() {
-        BaggageAndScope previousScope = baggageInScope.get(Thread.currentThread());
+        BaggageAndScope previousScope = baggageInScope.get();
         if (log.isTraceEnabled()) {
             log.trace("setValue to empty baggage scope, current baggage scope [" + previousScope + "]");
         }
@@ -188,9 +188,9 @@ public class ObservationAwareBaggageThreadLocalAccessor implements ThreadLocalAc
         }
         SpanInScope spanInScope = tracer.withSpan(null);
         BaggageAndScope currentScope = new BaggageAndScope(o -> spanInScope.close());
-        baggageInScope.put(Thread.currentThread(), scopeRestoringBaggageAndScope(currentScope, previousScope));
+        baggageInScope.set(scopeRestoringBaggageAndScope(currentScope, previousScope));
         if (log.isTraceEnabled()) {
-            log.trace("setValue no args finished, current baggage scope [" + baggageInScope.get(Thread.currentThread())
+            log.trace("setValue no args finished, current baggage scope [" + baggageInScope.get()
                     + "]");
         }
     }
@@ -202,26 +202,26 @@ public class ObservationAwareBaggageThreadLocalAccessor implements ThreadLocalAc
                 if (log.isTraceEnabled()) {
                     log.trace("Putting previous scope [" + previousScope + "]");
                 }
-                baggageInScope.put(Thread.currentThread(), previousScope);
+                baggageInScope.set(previousScope);
             }
             else {
                 if (log.isTraceEnabled()) {
                     log.trace("No previous scope to put, clearing the thread [" + Thread.currentThread() + "]");
                 }
-                baggageInScope.remove(Thread.currentThread());
+                baggageInScope.remove();
             }
         });
     }
 
     void closeCurrentScope() {
-        BaggageAndScope scope = baggageInScope.get(Thread.currentThread());
+        BaggageAndScope scope = baggageInScope.get();
         if (log.isTraceEnabled()) {
             log.trace("Before close scope [" + scope + "]");
         }
         if (scope != null) {
             scope.accept(null);
             if (log.isTraceEnabled()) {
-                log.trace("After close scope [" + baggageInScope.get(Thread.currentThread()) + "]");
+                log.trace("After close scope [" + baggageInScope.get() + "]");
             }
         }
         else if (log.isTraceEnabled()) {

@@ -20,7 +20,7 @@ import java.util.Map;
 
 public class TestObservationAwareSpanThreadLocalAccessor {
 
-    public static Map<Thread, SpanAction> spanActions(ObservationAwareSpanThreadLocalAccessor accessor) {
+    public static ThreadLocal<? extends Object> spanActions(ObservationAwareSpanThreadLocalAccessor accessor) {
         return accessor.spanActions;
     }
 

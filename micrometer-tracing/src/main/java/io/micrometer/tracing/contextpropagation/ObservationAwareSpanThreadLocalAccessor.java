@@ -60,7 +60,7 @@ public class ObservationAwareSpanThreadLocalAccessor implements ThreadLocalAcces
     private static final InternalLogger log = InternalLoggerFactory
         .getInstance(ObservationAwareSpanThreadLocalAccessor.class);
 
-    final Map<Thread, SpanAction> spanActions = new ConcurrentHashMap<>();
+    final ThreadLocal<SpanAction> spanActions = new ThreadLocal<>();
 
     /**
      * Key under which Micrometer Tracing is being registered.
@@ -131,13 +131,13 @@ public class ObservationAwareSpanThreadLocalAccessor implements ThreadLocalAcces
         if (log.isTraceEnabled()) {
             log.trace("Setting value [" + value + "], current span [" + tracer.currentSpan() + "]");
         }
-        SpanAction spanAction = spanActions.get(Thread.currentThread());
+        SpanAction spanAction = spanActions.get();
         Tracer.SpanInScope scope = this.tracer.withSpan(value);
         if (log.isTraceEnabled()) {
             log.trace("New scope created [" + scope + "], current span [" + value + "]");
         }
         SpanAction newSpanAction = new SpanAction(spanActions, spanAction);
-        spanActions.put(Thread.currentThread(), newSpanAction);
+        spanActions.set(newSpanAction);
         newSpanAction.setScope(scope);
     }
 
@@ -146,7 +146,7 @@ public class ObservationAwareSpanThreadLocalAccessor implements ThreadLocalAcces
         if (log.isTraceEnabled()) {
             log.trace("Setting null value, current span [" + tracer.currentSpan() + "]");
         }
-        SpanAction spanAction = spanActions.get(Thread.currentThread());
+        SpanAction spanAction = spanActions.get();
         if (spanAction == null) {
             if (log.isTraceEnabled()) {
                 log.trace("No action to perform");
@@ -165,7 +165,7 @@ public class ObservationAwareSpanThreadLocalAccessor implements ThreadLocalAcces
         if (log.isTraceEnabled()) {
             log.trace("Restoring previous value [" + previousValue + "]");
         }
-        SpanAction spanAction = spanActions.get(Thread.currentThread());
+        SpanAction spanAction = spanActions.get();
         if (spanAction == null) {
             if (log.isTraceEnabled()) {
                 log.trace("No action to perform");
@@ -188,7 +188,7 @@ public class ObservationAwareSpanThreadLocalAccessor implements ThreadLocalAcces
         if (log.isTraceEnabled()) {
             log.trace("Restoring to empty span scope");
         }
-        SpanAction spanAction = spanActions.get(Thread.currentThread());
+        SpanAction spanAction = spanActions.get();
         if (spanAction != null) {
             spanAction.close();
         }
@@ -201,11 +201,11 @@ public class ObservationAwareSpanThreadLocalAccessor implements ThreadLocalAcces
 
         final @Nullable SpanAction previous;
 
-        final Map<Thread, SpanAction> todo;
+        final ThreadLocal<SpanAction> todo;
 
         @Nullable AutoCloseable scope;
 
-        SpanAction(Map<Thread, SpanAction> spanActions, @Nullable SpanAction previous) {
+        SpanAction(ThreadLocal<SpanAction> spanActions, @Nullable SpanAction previous) {
             this.previous = previous;
             this.todo = spanActions;
         }
@@ -225,10 +225,10 @@ public class ObservationAwareSpanThreadLocalAccessor implements ThreadLocalAcces
                 }
             }
             if (this.previous != null) {
-                this.todo.put(Thread.currentThread(), this.previous);
+                this.todo.set(this.previous);
             }
             else {
-                this.todo.remove(Thread.currentThread());
+                this.todo.remove();
             }
         }
 

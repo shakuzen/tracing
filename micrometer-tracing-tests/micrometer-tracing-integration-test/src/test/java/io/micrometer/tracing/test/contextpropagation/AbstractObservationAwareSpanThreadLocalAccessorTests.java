@@ -99,13 +99,13 @@ abstract class AbstractObservationAwareSpanThreadLocalAccessorTests {
         then(observationRegistry.getCurrentObservationScope()).isNull();
         Awaitility.await()
             .atMost(2, TimeUnit.SECONDS)
-            .untilAsserted(() -> BDDAssertions.then(TestObservationAwareSpanThreadLocalAccessor.spanActions(accessor))
-                .isEmpty());
+            .untilAsserted(() -> BDDAssertions.then(TestObservationAwareSpanThreadLocalAccessor.spanActions(accessor).get())
+                .isNull());
         Awaitility.await()
             .atMost(2, TimeUnit.SECONDS)
             .untilAsserted(() -> BDDAssertions
-                .then(TestBaggageThreadLocalAccessor.baggageInScope(observationAwareBaggageThreadLocalAccessor))
-                .isEmpty());
+                .then(TestBaggageThreadLocalAccessor.baggageInScope(observationAwareBaggageThreadLocalAccessor).get())
+                .isNull());
         contextRegistry.removeThreadLocalAccessor(ObservationThreadLocalAccessor.KEY);
         contextRegistry.removeThreadLocalAccessor(ObservationAwareSpanThreadLocalAccessor.KEY);
         contextRegistry.removeThreadLocalAccessor(ObservationAwareBaggageThreadLocalAccessor.KEY);
