@@ -239,7 +239,11 @@ public interface TracingObservationHandler<T extends Observation.Context> extend
 
         private @Nullable Span span;
 
-        private Map<Thread, CurrentTraceContext.Scope> scopes = new ConcurrentHashMap<>();
+        private volatile @Nullable Thread thread;
+
+        private volatile CurrentTraceContext.@Nullable Scope scope;
+
+        private volatile @Nullable Map<Thread, CurrentTraceContext.Scope> scopes;
 
         private Observation.@Nullable ContextView context;
 
@@ -264,7 +268,14 @@ public interface TracingObservationHandler<T extends Observation.Context> extend
          * @return scope of the span
          */
         public CurrentTraceContext.@Nullable Scope getScope() {
-            return this.scopes.get(Thread.currentThread());
+            Thread currentThread = Thread.currentThread();
+            if (this.thread == currentThread) {
+                return this.scope;
+            }
+            if (this.scopes != null) {
+                return this.scopes.get(currentThread);
+            }
+            return null;
         }
 
         /**
@@ -272,11 +283,32 @@ public interface TracingObservationHandler<T extends Observation.Context> extend
          * @param scope scope to set
          */
         public void setScope(CurrentTraceContext.@Nullable Scope scope) {
+            Thread currentThread = Thread.currentThread();
+            if (this.thread == null || this.thread == currentThread) {
+                if (scope == null) {
+                    this.thread = null;
+                    this.scope = null;
+                }
+                else {
+                    this.thread = currentThread;
+                    this.scope = scope;
+                }
+                return;
+            }
+
+            if (this.scopes == null) {
+                synchronized (this) {
+                    if (this.scopes == null) {
+                        this.scopes = new ConcurrentHashMap<>();
+                    }
+                }
+            }
+
             if (scope == null) {
-                this.scopes.remove(Thread.currentThread());
+                this.scopes.remove(currentThread);
             }
             else {
-                this.scopes.put(Thread.currentThread(), scope);
+                this.scopes.put(currentThread, scope);
             }
         }
 
