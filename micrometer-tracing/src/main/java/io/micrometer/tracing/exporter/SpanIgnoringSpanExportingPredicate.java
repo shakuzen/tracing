@@ -54,29 +54,34 @@ public class SpanIgnoringSpanExportingPredicate implements SpanExportingPredicat
         this.additionalSpanNamePatternsToIgnore = additionalSpanNamePatternsToIgnore;
     }
 
-    private List<Pattern> spanNamesToIgnore() {
-        return spanNames().stream()
-            .map(regex -> cache.computeIfAbsent(regex, Pattern::compile))
-            .collect(Collectors.toList());
-    }
-
-    private List<String> spanNames() {
-        List<String> spanNamesToIgnore = new ArrayList<>(this.spanNamePatternsToSkip);
-        spanNamesToIgnore.addAll(this.additionalSpanNamePatternsToIgnore);
-        return spanNamesToIgnore;
-    }
-
     @Override
     public boolean isExportable(FinishedSpan span) {
-        List<Pattern> spanNamesToIgnore = spanNamesToIgnore();
         String name = span.getName();
-        if (StringUtils.isNotEmpty(name) && spanNamesToIgnore.stream().anyMatch(p -> p.matcher(name).matches())) {
-            if (log.isDebugEnabled()) {
-                log.debug("Will ignore a span with name [" + name + "]");
-            }
+        if (StringUtils.isEmpty(name)) {
+            return true;
+        }
+        
+        if (matches(this.spanNamePatternsToSkip, name)) {
+            return false;
+        }
+        if (matches(this.additionalSpanNamePatternsToIgnore, name)) {
             return false;
         }
         return true;
+    }
+
+    private boolean matches(List<String> patterns, String name) {
+        for (int i = 0; i < patterns.size(); i++) {
+            String regex = patterns.get(i);
+            Pattern pattern = cache.computeIfAbsent(regex, Pattern::compile);
+            if (pattern.matcher(name).matches()) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Will ignore a span with name [" + name + "]");
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
 }

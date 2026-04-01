@@ -18,4 +18,5 @@ jmh {
     iterations = 1
     duplicateClassesStrategy = DuplicatesStrategy.EXCLUDE
     zip64 = true
+    includes = ['.*SpanExportingPredicateBenchmark.*']
 }

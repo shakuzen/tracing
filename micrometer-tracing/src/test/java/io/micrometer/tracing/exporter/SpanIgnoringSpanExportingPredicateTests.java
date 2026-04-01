@@ -47,6 +47,28 @@ class SpanIgnoringSpanExportingPredicateTests {
     }
 
     @Test
+    void should_handle_span_when_not_present_in_lists_of_spans_to_skip() {
+        SpanIgnoringSpanExportingPredicate handler = new SpanIgnoringSpanExportingPredicate(
+                Collections.singletonList("someOtherName"), Collections.singletonList("yetAnotherName"));
+
+        then(handler.isExportable(namedSpan())).isTrue();
+    }
+
+    @Test
+    void should_handle_span_when_name_is_null_or_empty() {
+        SpanIgnoringSpanExportingPredicate handler = new SpanIgnoringSpanExportingPredicate(
+                Collections.singletonList("someName"), Collections.emptyList());
+
+        FinishedSpan emptyNameSpan = BDDMockito.mock(FinishedSpan.class);
+        BDDMockito.given(emptyNameSpan.getName()).willReturn("");
+        then(handler.isExportable(emptyNameSpan)).isTrue();
+
+        FinishedSpan nullNameSpan = BDDMockito.mock(FinishedSpan.class);
+        BDDMockito.given(nullNameSpan.getName()).willReturn(null);
+        then(handler.isExportable(nullNameSpan)).isTrue();
+    }
+
+    @Test
     void should_use_cached_entry_for_same_patterns() {
         export(handler("someOtherName"));
         export(handler("someOtherName"));
