@@ -339,8 +339,4 @@ subprojects {
 	if (check) project.rootProject.tasks.releaseCheck.dependsOn check
 }
 
-wrapper {
-	gradleVersion = '8.14.3'
-}
-
 defaultTasks 'build'
