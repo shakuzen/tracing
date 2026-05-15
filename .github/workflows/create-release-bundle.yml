@@ -1,0 +1,26 @@
+name: Create Release Bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The version to release (e.g., 1.2.3)'
+        required: true
+        type: string
+
+jobs:
+  create-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger JFrog Release Bundle
+        env:
+          COMMERCIAL_ARTIFACTORY_USERNAME: ${{ secrets.COMMERCIAL_ARTIFACTORY_USERNAME }}
+          COMMERCIAL_ARTIFACTORY_PASSWORD: ${{ secrets.COMMERCIAL_ARTIFACTORY_PASSWORD }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          curl -sS -u "${COMMERCIAL_ARTIFACTORY_USERNAME}:${COMMERCIAL_ARTIFACTORY_PASSWORD}" \
+            -X POST \
+            -H 'X-JFrog-Signing-Key-Name: packagesKey' \
+            -H 'Content-Type: application/json' \
+            'https://usw1.packages.broadcom.com/lifecycle/api/v2/release_bundle?project=spring' \
+            --data '{"release_bundle_name": "TNZ-micrometer-tracing-commercial", "release_bundle_version": "'"${VERSION}"'", "source_type": "aql", "source": {"aql": "items.find({\"repo\":{\"$eq\":\"spring-enterprise-maven-prod-local\"}, \"path\": {\"$match\":\"io/micrometer/*/'"${VERSION}"'\"}}).sort({\"$asc\": [\"path\",\"name\"]})"}}'
