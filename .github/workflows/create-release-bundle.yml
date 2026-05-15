@@ -10,7 +10,7 @@ on:
 
 jobs:
   create-bundle:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_FOR_RELEASE }}
     steps:
       - name: Trigger JFrog Release Bundle
         env:
