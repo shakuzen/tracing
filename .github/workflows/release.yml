@@ -108,3 +108,20 @@ jobs:
       - name: Upload Build Reports
         uses: ./.github/actions/upload-build-reports
         if: ${{ failure() }}
+
+  create-release-bundle:
+    runs-on: ${{ vars.RUNNER_FOR_RELEASE }}
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    needs: [ deploy ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Extract Version
+        id: extract_version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+      - name: Create Release Bundle
+        uses: ./.github/actions/create-release-bundle
+        with:
+          version: ${{ steps.extract_version.outputs.version }}
+          artifactory-username: ${{ secrets.COMMERCIAL_ARTIFACTORY_USERNAME }}
+          artifactory-password: ${{ secrets.COMMERCIAL_ARTIFACTORY_PASSWORD }}
