@@ -65,7 +65,15 @@ import static com.wavefront.sdk.common.Constants.*;
  * don't call {@link UUID#timestamp()} on UUIDs converted here, or in other Wavefront
  * code, as it might throw an exception.
  *
- * @deprecated since 1.6.0 because Wavefront's End of Life Announcement
+ * @deprecated since 1.6.0 because Wavefront's End of Life Announcement.
+ * <p>
+ * <strong>Warning:</strong> Be aware of high-cardinality span names or span tags.
+ * If span operation names or default span tags incorporate dynamic/request-derived high-cardinality data,
+ * the heap of the tracing process can be exhausted due to unbounded state growth in tracing-derived RED metrics.
+ * To mitigate this, the internal heartbeat metrics tracker is capped at a maximum capacity of 1000 unique
+ * keys per reporting interval. If you exceed this limit, any additional newly discovered heartbeat metrics within
+ * that interval will be dropped, which may cause some endpoints or components to temporarily not appear
+ * on the Wavefront Service Dashboard or Application Map.
  * @since 1.0.0
  */
 @Deprecated
@@ -106,6 +114,8 @@ public class WavefrontSpanHandler implements Runnable, Closeable {
 
     private final Set<Pair<Map<String, String>, String>> discoveredHeartbeatMetrics;
 
+    private static final int DEFAULT_MAX_HEARTBEAT_METRICS_CAPACITY = 1000;
+
     private final ScheduledExecutorService heartbeatMetricsScheduledExecutorService;
 
     private final String source;
@@ -135,7 +145,7 @@ public class WavefrontSpanHandler implements Runnable, Closeable {
             String source, ApplicationTags applicationTags, Set<String> redMetricsCustomTagKeys) {
         this.wavefrontSender = wavefrontSender;
         this.applicationTags = applicationTags;
-        this.discoveredHeartbeatMetrics = ConcurrentHashMap.newKeySet();
+        this.discoveredHeartbeatMetrics = new BoundedConcurrentSet<>(DEFAULT_MAX_HEARTBEAT_METRICS_CAPACITY);
         this.spanMetrics = spanMetrics;
 
         this.heartbeatMetricsScheduledExecutorService = Executors.newScheduledThreadPool(1,
@@ -508,6 +518,60 @@ public class WavefrontSpanHandler implements Runnable, Closeable {
                 String version = localIp.contains(":") ? "ipv6" : "ipv4";
                 add(Pair.of(version, localIp));
             }
+        }
+
+    }
+
+    static class BoundedConcurrentSet<T> extends AbstractSet<T> {
+
+        private final Set<T> delegate = ConcurrentHashMap.newKeySet();
+
+        private final int maxCapacity;
+
+        private final AtomicBoolean warningLogged = new AtomicBoolean();
+
+        BoundedConcurrentSet(int maxCapacity) {
+            this.maxCapacity = maxCapacity;
+        }
+
+        @Override
+        public boolean add(T e) {
+            if (this.delegate.contains(e)) {
+                return false;
+            }
+            if (this.delegate.size() >= this.maxCapacity) {
+                if (this.warningLogged.compareAndSet(false, true)) {
+                    LOG.warn("Max capacity of " + this.maxCapacity + " reached for discovered heartbeat metrics. "
+                            + "New heartbeat metrics will be dropped. Please check if your span names or tags are high cardinality.");
+                }
+                return false;
+            }
+            return this.delegate.add(e);
+        }
+
+        @Override
+        public Iterator<T> iterator() {
+            return this.delegate.iterator();
+        }
+
+        @Override
+        public int size() {
+            return this.delegate.size();
+        }
+
+        @Override
+        public void clear() {
+            this.delegate.clear();
+        }
+
+        @Override
+        public boolean remove(Object o) {
+            return this.delegate.remove(o);
+        }
+
+        @Override
+        public boolean contains(Object o) {
+            return this.delegate.contains(o);
         }
 
     }

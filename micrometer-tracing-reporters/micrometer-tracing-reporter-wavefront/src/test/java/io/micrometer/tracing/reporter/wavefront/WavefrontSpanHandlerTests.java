@@ -29,6 +29,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
@@ -80,6 +81,23 @@ class WavefrontSpanHandlerTests {
 
         verify(sender).flush();
         verify(sender).close();
+    }
+
+    @Test
+    void boundedConcurrentSetLimitsCapacity() {
+        WavefrontSpanHandler.BoundedConcurrentSet<String> set = new WavefrontSpanHandler.BoundedConcurrentSet<>(3);
+        assertThat(set.add("a")).isTrue();
+        assertThat(set.add("b")).isTrue();
+        assertThat(set.add("c")).isTrue();
+
+        // Adding duplicate should return false but not exceed capacity
+        assertThat(set.add("a")).isFalse();
+        assertThat(set.size()).isEqualTo(3);
+
+        // Adding more elements should be rejected
+        assertThat(set.add("d")).isFalse();
+        assertThat(set.size()).isEqualTo(3);
+        assertThat(set).containsExactlyInAnyOrder("a", "b", "c");
     }
 
     static class DummyTraceContext implements TraceContext {
