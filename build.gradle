@@ -253,6 +253,12 @@ subprojects {
 						password findProperty('REPOSITORY_PASSWORD')
 					}
 				}
+				if (project.hasProperty("deploymentRepository")) {
+					maven {
+						name = 'Deployment'
+						url = project.property("deploymentRepository")
+					}
+				}
 			}
 		}
 
@@ -332,6 +338,18 @@ subprojects {
 			// content {
 			// 	excludeGroup 'io.micrometer'
 			// }
+		}
+		if (System.getenv("RELEASE_TRAIN_MAVEN_REPOSITORY_URL") != null) {
+			repositories {
+				maven {
+					name = "Release Train"
+					url = System.getenv("RELEASE_TRAIN_MAVEN_REPOSITORY_URL")
+					credentials {
+						username = System.getenv("RELEASE_TRAIN_MAVEN_REPOSITORY_USERNAME")
+						password = System.getenv("RELEASE_TRAIN_MAVEN_REPOSITORY_PASSWORD")
+					}
+				}
+			}
 		}
 	}
 
