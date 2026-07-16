@@ -8,10 +8,10 @@ import brave.baggage.BaggagePropagation;
 import brave.baggage.BaggagePropagationConfig;
 import brave.propagation.Propagation;
 import brave.propagation.TraceContext;
+import brave.propagation.TraceContextOrSamplingFlags;
 import io.micrometer.tracing.brave.bridge.BraveBaggageManager;
 import io.micrometer.tracing.brave.bridge.W3CPropagation;
 import org.openjdk.jmh.annotations.*;
-import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -26,9 +26,12 @@ public class W3CPropagationBenchmark {
 
     private W3CPropagation propagation;
     private TraceContext context;
-    private Map<String, String> carrier;
     private Propagation.Setter<Map<String, String>, String> setter;
     private Propagation.Getter<Map<String, String>, String> getter;
+    
+    private Map<String, String> injectCarrier;
+    private Map<String, String> extractCarrier;
+    private Map<String, String> extractOversizedCarrier;
 
     @Setup
     public void setup() {
@@ -51,36 +54,38 @@ public class W3CPropagationBenchmark {
         field2.updateValue(dummyContext, "value2,with=delimiters;and spaces");
         
         this.context = dummyContext;
-        this.carrier = new HashMap<>();
         this.setter = Map::put;
         this.getter = Map::get;
-    }
 
-    @Benchmark
-    public void inject(Blackhole blackhole) {
-        Map<String, String> localCarrier = new HashMap<>();
-        this.propagation.injector(this.setter).inject(this.context, localCarrier);
-        blackhole.consume(localCarrier);
-    }
+        // Pre-allocate and pre-populate carriers to isolate propagation performance
+        this.injectCarrier = new HashMap<>();
+        
+        this.extractCarrier = new HashMap<>();
+        this.extractCarrier.put("baggage", "key1=value1,key2=value2%2Cwith%3Ddelimiters%3Band%20spaces");
 
-    @Benchmark
-    public void extract(Blackhole blackhole) {
-        Map<String, String> localCarrier = new HashMap<>();
-        localCarrier.put("baggage", "key1=value1,key2=value2%2Cwith%3Ddelimiters%3Band%20spaces");
-        blackhole.consume(this.propagation.extractor(this.getter).extract(localCarrier));
-    }
-
-    @Benchmark
-    public void extractOversized(Blackhole blackhole) {
-        Map<String, String> localCarrier = new HashMap<>();
-        // Generate a 10KB header to trigger truncation and limits
+        this.extractOversizedCarrier = new HashMap<>();
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 500; i++) {
             sb.append("k").append(i).append("=").append("v").append(i).append(",");
         }
         sb.setLength(sb.length() - 1);
-        localCarrier.put("baggage", sb.toString());
-        blackhole.consume(this.propagation.extractor(this.getter).extract(localCarrier));
+        this.extractOversizedCarrier.put("baggage", sb.toString());
+    }
+
+    @Benchmark
+    public Map<String, String> inject() {
+        this.propagation.injector(this.setter).inject(this.context, this.injectCarrier);
+        return this.injectCarrier;
+    }
+
+    @Benchmark
+    public TraceContextOrSamplingFlags extract() {
+        return this.propagation.extractor(this.getter).extract(this.extractCarrier);
+    }
+
+    @Benchmark
+    public TraceContextOrSamplingFlags extractOversized() {
+        return this.propagation.extractor(this.getter).extract(this.extractOversizedCarrier);
     }
 
 }
