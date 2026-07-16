@@ -213,7 +213,182 @@ class W3CBaggagePropagatorTest {
             .inject(context.context(), carrier);
 
         assertThat(carrier).containsExactlyInAnyOrderEntriesOf(
-                singletonMap("baggage", "nometa=nometa-value,meta=meta-value;somemetadata; someother=foo"));
+                singletonMap("baggage", "nometa=nometa-value,meta=meta-value%3Bsomemetadata%3B%20someother%3Dfoo"));
+    }
+
+    @Test
+    void inject_percentEncodesSpecialCharacters() {
+        TraceContextOrSamplingFlags.Builder builder = context().toBuilder();
+        BaggageField field = BaggageField.create("my-key");
+        builder.addExtra(BaggageFields.newFactory(Arrays.asList(field), 10).create());
+        TraceContextOrSamplingFlags context = builder.build();
+        field.updateValue(context, "value,with=delimiters;and spaces");
+        Map<String, String> carrier = new HashMap<>();
+
+        propagator.injector((Propagation.Setter<Map<String, String>, String>) Map::put)
+            .inject(context.context(), carrier);
+
+        assertThat(carrier).containsEntry("baggage", "my-key=value%2Cwith%3Ddelimiters%3Band%20spaces");
+    }
+
+    @Test
+    void extract_neutralizesDelimiterInjection() {
+        TraceContextOrSamplingFlags context = context();
+        Map<String, String> carrier = new HashMap<>();
+        carrier.put("baggage", "my-key=value%2Ctenant-id%3Dadmin");
+
+        TraceContextOrSamplingFlags contextWithBaggage = propagator.contextWithBaggage(carrier, context, Map::get);
+
+        Map<String, String> baggageEntries = baggageEntries(contextWithBaggage);
+        assertThat(baggageEntries)
+            .containsEntry("my-key", "value,tenant-id=admin")
+            .doesNotContainKey("tenant-id");
+    }
+
+    @Test
+    void exploitInTheWildScenario() {
+        // --- STEP 1: Service A (Vulnerable) ---
+        // Service A only registers "req-id" as a remote field. It does NOT register or trust "tenant-id" from clients.
+        BraveBaggageManager serviceABaggageManager = new BraveBaggageManager(Collections.emptyList(), Collections.singletonList("req-id"));
+        W3CBaggagePropagator serviceAPropagator = new W3CBaggagePropagator(serviceABaggageManager, Collections.emptyList());
+
+        // An attacker sends a request to Service A with an input parameter that Service A puts into its "req-id" baggage.
+        // For example, the attacker passes: "123,tenant-id=admin" as the request ID.
+        String attackerControlledInput = "123,tenant-id=admin";
+
+        TraceContextOrSamplingFlags.Builder serviceAContextBuilder = context().toBuilder();
+        BaggageField reqIdField = BaggageField.create("req-id");
+        serviceAContextBuilder.addExtra(BaggageFields.newFactory(Collections.singletonList(reqIdField), 10).create());
+        TraceContextOrSamplingFlags serviceAContext = serviceAContextBuilder.build();
+        
+        // Service A sets the baggage value from the attacker-controlled input
+        reqIdField.updateValue(serviceAContext, attackerControlledInput);
+
+        // Service A makes an HTTP call to Service B, injecting the baggage header.
+        Map<String, String> serviceAOutboundHeaders = new HashMap<>();
+        serviceAPropagator.injector((Propagation.Setter<Map<String, String>, String>) Map::put)
+            .inject(serviceAContext.context(), serviceAOutboundHeaders);
+
+        // --- STEP 2: Service B (Downstream) ---
+        // Service B is a downstream service that trusts "tenant-id" baggage if it comes from an upstream service (like Service A).
+        BraveBaggageManager serviceBBaggageManager = new BraveBaggageManager(Collections.emptyList(), Arrays.asList("req-id", "tenant-id"));
+        W3CBaggagePropagator serviceBPropagator = new W3CBaggagePropagator(serviceBBaggageManager, Collections.emptyList());
+
+        // Service B receives the headers from Service A and extracts the baggage.
+        TraceContextOrSamplingFlags serviceBContext = serviceBPropagator.contextWithBaggage(serviceAOutboundHeaders, context(), Map::get);
+        Map<String, String> serviceBBaggageEntries = baggageEntries(serviceBContext);
+
+        // --- STEP 3: Verify the Vulnerability / Protection ---
+        // Under the fixed code, the attacker's injected "tenant-id=admin" is safely percent-encoded
+        // and does NOT get parsed as a separate baggage key by Service B.
+        assertThat(serviceBBaggageEntries)
+            .containsEntry("req-id", "123,tenant-id=admin")
+            .doesNotContainKey("tenant-id");
+    }
+
+    @Test
+    void blackBoxExploitPoC() throws Exception {
+        // We start a lightweight local HTTP server to act as our microservices
+        com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress(0), 0);
+        server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
+        
+        // This list will capture the headers received by the downstream Service B
+        java.util.List<String> capturedBaggageHeaders = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        // Configure Service A (Vulnerable Application)
+        // Service A only registers "req-id" as a remote field. It does NOT register or trust "tenant-id" from clients.
+        BraveBaggageManager serviceABaggageManager = new BraveBaggageManager(Collections.emptyList(), Collections.singletonList("req-id"));
+        W3CBaggagePropagator serviceAPropagator = new W3CBaggagePropagator(serviceABaggageManager, Collections.emptyList());
+
+        // Handler for Service A (Vulnerable)
+        server.createContext("/service-a", exchange -> {
+            try {
+                // Read the query parameter "reqId" representing attacker-controlled input
+                String query = exchange.getRequestURI().getQuery();
+                String attackerInput = query.split("reqId=")[1];
+
+                // Create a trace context and set the baggage field
+                TraceContextOrSamplingFlags.Builder contextBuilder = TraceContextOrSamplingFlags.newBuilder(
+                    TraceContext.newBuilder().traceId(1L).spanId(2L).sampled(true).build()
+                );
+                BaggageField reqIdField = BaggageField.create("req-id");
+                contextBuilder.addExtra(BaggageFields.newFactory(Collections.singletonList(reqIdField), 10).create());
+                TraceContextOrSamplingFlags context = contextBuilder.build();
+                
+                reqIdField.updateValue(context, attackerInput);
+
+                // Now Service A makes a downstream HTTP call to Service B
+                java.net.URL serviceBUrl = new java.net.URL("http://localhost:" + server.getAddress().getPort() + "/service-b");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) serviceBUrl.openConnection();
+                conn.setRequestMethod("GET");
+
+                // Inject the baggage header using our propagator
+                Propagation.Setter<java.net.HttpURLConnection, String> setter = (carrier, key, val) -> carrier.setRequestProperty(key, val);
+                serviceAPropagator.injector(setter)
+                    .inject(context.context(), conn);
+
+                // Send the request and read response to complete the call
+                conn.getResponseCode();
+                conn.disconnect();
+
+                // Respond to the attacker
+                byte[] response = "OK".getBytes();
+                exchange.sendResponseHeaders(200, response.length);
+                try (java.io.OutputStream os = exchange.getResponseBody()) {
+                    os.write(response);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, 0);
+            } finally {
+                exchange.close();
+            }
+        });
+
+        // Handler for Service B (Downstream Service)
+        server.createContext("/service-b", exchange -> {
+            try {
+                // Capture the incoming "baggage" header exactly as it was received over the wire
+                String baggageHeader = exchange.getRequestHeaders().getFirst("baggage");
+                if (baggageHeader != null) {
+                    capturedBaggageHeaders.add(baggageHeader);
+                }
+                exchange.sendResponseHeaders(200, -1);
+            } finally {
+                exchange.close();
+            }
+        });
+
+        server.start();
+
+        try {
+            // --- THE ATTACK ---
+            // The attacker sends a request to Service A, trying to inject "tenant-id=admin" via the "reqId" parameter.
+            // Note: The attacker does not have access to headers or code of Service B. They only send an HTTP request to Service A.
+            String attackerPayload = "123,tenant-id=admin";
+            java.net.URL url = new java.net.URL("http://localhost:" + server.getAddress().getPort() + "/service-a?reqId=" + java.net.URLEncoder.encode(attackerPayload, "UTF-8"));
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            
+            // Read the response from Service A
+            int responseCode = conn.getResponseCode();
+            assertThat(responseCode).isEqualTo(200);
+            conn.disconnect();
+
+            // --- VERIFICATION ---
+            // Verify that the outbound baggage header sent from Service A to Service B was safely percent-encoded.
+            assertThat(capturedBaggageHeaders).hasSize(1);
+            String receivedHeader = capturedBaggageHeaders.get(0);
+
+            // Under the fixed code, the comma and equals sign are percent-encoded:
+            // "req-id=123%2Ctenant-id%3Dadmin"
+            // If the vulnerability were present, it would be:
+            // "req-id=123,tenant-id=admin"
+            assertThat(receivedHeader).isEqualTo("req-id=123%2Ctenant-id%3Dadmin");
+
+        } finally {
+            server.stop(0);
+        }
     }
 
     @Test
@@ -348,6 +523,127 @@ class W3CBaggagePropagatorTest {
                 .build());
         }
         return builder.build();
+    }
+
+    @Test
+    void extract_ignoresInvalidKeys() {
+        TraceContextOrSamplingFlags context = context();
+        Map<String, String> carrier = new HashMap<>();
+        // Key contains non-printable character (ASCII 15)
+        carrier.put("baggage", "valid-key=value,in\u000fvalid-key=value2");
+
+        TraceContextOrSamplingFlags contextWithBaggage = propagator.contextWithBaggage(carrier, context, Map::get);
+
+        Map<String, String> baggageEntries = baggageEntries(contextWithBaggage);
+        assertThat(baggageEntries)
+            .containsEntry("valid-key", "value")
+            .doesNotContainKey("in\u000fvalid-key");
+    }
+
+    @Test
+    void inject_ignoresInvalidKeys() {
+        TraceContextOrSamplingFlags.Builder builder = context().toBuilder();
+        BaggageField validField = BaggageField.create("valid-key");
+        BaggageField invalidField = BaggageField.create("in\u000fvalid-key");
+        builder.addExtra(BaggageFields.newFactory(Arrays.asList(validField, invalidField), 10).create());
+        TraceContextOrSamplingFlags context = builder.build();
+        validField.updateValue(context, "value");
+        invalidField.updateValue(context, "value2");
+        Map<String, String> carrier = new HashMap<>();
+
+        propagator.injector((Propagation.Setter<Map<String, String>, String>) Map::put)
+            .inject(context.context(), carrier);
+
+        assertThat(carrier).containsEntry("baggage", "valid-key=value");
+    }
+
+    @Test
+    void extract_limitsTo64Entries() {
+        TraceContextOrSamplingFlags context = context();
+        Map<String, String> carrier = new HashMap<>();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 1; i <= 70; i++) {
+            sb.append("k").append(i).append("=v").append(i).append(",");
+        }
+        sb.setLength(sb.length() - 1);
+        carrier.put("baggage", sb.toString());
+
+        TraceContextOrSamplingFlags contextWithBaggage = propagator.contextWithBaggage(carrier, context, Map::get);
+
+        Map<String, String> baggageEntries = baggageEntries(contextWithBaggage);
+        assertThat(baggageEntries).hasSize(64);
+        assertThat(baggageEntries).containsEntry("k1", "v1").containsEntry("k64", "v64").doesNotContainKey("k65");
+    }
+
+    @Test
+    void inject_limitsTo64Entries() {
+        TraceContextOrSamplingFlags.Builder builder = context().toBuilder();
+        List<BaggageField> fields = new ArrayList<>();
+        for (int i = 1; i <= 64; i++) {
+            fields.add(BaggageField.create("k" + i));
+        }
+        builder.addExtra(BaggageFields.newFactory(fields, 64).create());
+        TraceContextOrSamplingFlags context = builder.build();
+        for (int i = 1; i <= 64; i++) {
+            fields.get(i - 1).updateValue(context, "v" + i);
+        }
+        Map<String, String> carrier = new HashMap<>();
+
+        propagator.injector((Propagation.Setter<Map<String, String>, String>) Map::put)
+            .inject(context.context(), carrier);
+
+        String baggageHeader = carrier.get("baggage");
+        assertThat(baggageHeader).isNotNull();
+        String[] parts = baggageHeader.split(",");
+        assertThat(parts).hasSize(64);
+    }
+
+    @Test
+    void extract_truncatesHeaderExceeding8192Bytes() {
+        TraceContextOrSamplingFlags context = context();
+        Map<String, String> carrier = new HashMap<>();
+        StringBuilder sb = new StringBuilder();
+        // Generate a very large header, e.g. 10000 bytes
+        int i = 1;
+        while (sb.length() < 10000) {
+            sb.append("key").append(i).append("=").append("value").append(i).append(",");
+            i++;
+        }
+        sb.setLength(sb.length() - 1);
+        carrier.put("baggage", sb.toString());
+
+        TraceContextOrSamplingFlags contextWithBaggage = propagator.contextWithBaggage(carrier, context, Map::get);
+
+        Map<String, String> baggageEntries = baggageEntries(contextWithBaggage);
+        // Should parse some entries but stop before 8192 bytes
+        assertThat(baggageEntries).isNotEmpty();
+        // The total number of entries should be limited, and no key from the truncated part should exist
+        String lastKey = "key" + (i - 1);
+        assertThat(baggageEntries).doesNotContainKey(lastKey);
+    }
+
+    @Test
+    void inject_limitsTo8192Bytes() {
+        TraceContextOrSamplingFlags.Builder builder = context().toBuilder();
+        List<BaggageField> fields = new ArrayList<>();
+        // Create enough fields to exceed 8192 bytes when serialized
+        for (int i = 1; i <= 64; i++) {
+            fields.add(BaggageField.create("key" + i));
+        }
+        builder.addExtra(BaggageFields.newFactory(fields, 64).create());
+        TraceContextOrSamplingFlags context = builder.build();
+        for (int i = 1; i <= 64; i++) {
+            // Each entry is very long to exceed 8192 bytes total
+            fields.get(i - 1).updateValue(context, "value-with-long-string-to-make-it-exceed-the-limit-value-with-long-string-to-make-it-exceed-the-limit-value-with-long-string-to-make-it-exceed-the-limit-" + i);
+        }
+        Map<String, String> carrier = new HashMap<>();
+
+        propagator.injector((Propagation.Setter<Map<String, String>, String>) Map::put)
+            .inject(context.context(), carrier);
+
+        String baggageHeader = carrier.get("baggage");
+        assertThat(baggageHeader).isNotNull();
+        assertThat(baggageHeader.length()).isLessThanOrEqualTo(8192);
     }
 
 }

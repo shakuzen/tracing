@@ -176,7 +176,6 @@ public class W3CPropagation extends Propagation.Factory implements Propagation<S
 /**
  * Taken from OpenTelemetry API.
  */
-@SuppressWarnings("deprecation")
 class W3CBaggagePropagator {
 
     private static final InternalLogger log = InternalLoggerFactory.getInstance(W3CBaggagePropagator.class);
@@ -187,9 +186,83 @@ class W3CBaggagePropagator {
 
     private static final List<String> FIELDS = singletonList(FIELD);
 
+    private static final int MAX_BAGGAGE_ENTRIES = 64;
+
+    private static final int MAX_BAGGAGE_BYTES = 8192;
+
     private final BaggageManager braveBaggageManager;
 
     private final List<String> localFields;
+
+    private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
+
+    private static boolean isValidBaggageKey(String key) {
+        if (key == null || key.trim().isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < key.length(); i++) {
+            char ch = key.charAt(i);
+            if (ch < ' ' || ch > '~') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String percentEncode(String value) {
+        byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        StringBuilder sb = new StringBuilder(bytes.length);
+        for (byte b : bytes) {
+            if (isBaggageOctet(b)) {
+                sb.append((char) b);
+            } else {
+                sb.append('%');
+                sb.append(HEX_DIGITS[(b >> 4) & 0xF]);
+                sb.append(HEX_DIGITS[b & 0xF]);
+            }
+        }
+        return sb.toString();
+    }
+
+    private static boolean isBaggageOctet(byte b) {
+        // baggage-octet = %x21 / %x23-2B / %x2D-3A / %x3C-5B / %x5D-7E
+        // Excludes: CTLs, whitespace, DQUOTE ("), percent (%), comma (,), semicolon (;), equals (=), and backslash (\)
+        if (b < 0x21 || b > 0x7E) {
+            return false;
+        }
+        if (b == 0x22 || b == 0x25 || b == 0x2C || b == 0x3B || b == 0x3D || b == 0x5C) {
+            return false;
+        }
+        return true;
+    }
+
+    private static String percentDecode(String value) {
+        if (value.indexOf('%') < 0) {
+            return value;
+        }
+        try {
+            byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(bytes.length);
+            for (int i = 0; i < bytes.length; i++) {
+                byte b = bytes[i];
+                if (b == '%') {
+                    if (i + 2 < bytes.length) {
+                        int hi = Character.digit((char) bytes[i + 1], 16);
+                        int lo = Character.digit((char) bytes[i + 2], 16);
+                        if (hi >= 0 && lo >= 0) {
+                            out.write((hi << 4) | lo);
+                            i += 2;
+                            continue;
+                        }
+                    }
+                }
+                out.write(b);
+            }
+            return out.toString(java.nio.charset.StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            return value;
+        }
+    }
 
     W3CBaggagePropagator(BaggageManager baggageManager, List<String> localFields) {
         this.braveBaggageManager = baggageManager;
@@ -210,17 +283,26 @@ class W3CBaggagePropagator {
             // We ignore local keys - they won't get propagated
             String[] strings = this.localFields.toArray(new String[0]);
             Map<String, String> filtered = extra.toMapFilteringFieldNames(strings);
+            int entryCount = 0;
             for (Map.Entry<String, String> entry : filtered.entrySet()) {
                 if (TRACE_STATE.equalsIgnoreCase(entry.getKey())) {
                     continue;
                 }
-                headerContent.append(entry.getKey()).append("=").append(entry.getValue());
-                // TODO: [OTEL] No metadata support
-                // String metadataValue = entry.getEntryMetadata().getValue();
-                // if (metadataValue != null && !metadataValue.isEmpty()) {
-                // headerContent.append(";").append(metadataValue);
-                // }
-                headerContent.append(",");
+                if (entryCount >= MAX_BAGGAGE_ENTRIES) {
+                    break;
+                }
+                String rawKey = entry.getKey();
+                if (!isValidBaggageKey(rawKey)) {
+                    continue;
+                }
+                String key = percentEncode(rawKey);
+                String value = percentEncode(entry.getValue());
+                int entryLength = key.length() + 1 + value.length() + 1; // "key=value,"
+                if (headerContent.length() + entryLength - 1 > MAX_BAGGAGE_BYTES) {
+                    break;
+                }
+                headerContent.append(key).append("=").append(value).append(",");
+                entryCount++;
             }
             if (headerContent.length() > 0) {
                 headerContent.setLength(headerContent.length() - 1);
@@ -232,33 +314,48 @@ class W3CBaggagePropagator {
     <R> TraceContextOrSamplingFlags contextWithBaggage(R carrier, TraceContextOrSamplingFlags flags,
             Propagation.Getter<R, String> getter) {
         String baggageHeader = getter.get(carrier, FIELD);
-        List<AbstractMap.SimpleEntry<Baggage, String>> pairs = baggageHeader == null || baggageHeader.isEmpty()
-                ? Collections.emptyList() : addBaggageToContext(baggageHeader);
+        if (baggageHeader == null || baggageHeader.isEmpty()) {
+            return flags.toBuilder().addExtra(new BraveBaggageFields(Collections.emptyList())).build();
+        }
+        if (baggageHeader.length() > MAX_BAGGAGE_BYTES) {
+            if (log.isDebugEnabled()) {
+                log.debug("Baggage header length (" + baggageHeader.length() + ") exceeds W3C limit of 8192 bytes. Truncating header.");
+            }
+            baggageHeader = baggageHeader.substring(0, MAX_BAGGAGE_BYTES);
+        }
+        List<AbstractMap.SimpleEntry<Baggage, String>> pairs = addBaggageToContext(baggageHeader);
         return flags.toBuilder().addExtra(new BraveBaggageFields(pairs)).build();
     }
 
     List<AbstractMap.SimpleEntry<Baggage, String>> addBaggageToContext(String baggageHeader) {
         List<AbstractMap.SimpleEntry<Baggage, String>> pairs = new ArrayList<>();
         String[] entries = baggageHeader.split(",");
+        int entryCount = 0;
         for (String entry : entries) {
+            if (entryCount >= MAX_BAGGAGE_ENTRIES) {
+                break;
+            }
             int beginningOfMetadata = entry.indexOf(";");
             if (beginningOfMetadata > 0) {
                 entry = entry.substring(0, beginningOfMetadata);
             }
-            String[] keyAndValue = entry.split("=");
-            if (keyAndValue.length % 2 == 0) {
-                for (int i = 0; i < keyAndValue.length - 1; i += 2) {
-                    try {
-                        String key = keyAndValue[i].trim();
-                        String value = keyAndValue[i + 1].trim();
-                        Baggage baggage = this.braveBaggageManager.createBaggage(key);
-                        pairs.add(new AbstractMap.SimpleEntry<>(baggage, value));
+            String[] keyAndValue = entry.split("=", 2);
+            boolean hasValue = keyAndValue.length == 2 && !keyAndValue[1].isEmpty();
+            if (hasValue) {
+                try {
+                    String key = percentDecode(keyAndValue[0].trim());
+                    if (!isValidBaggageKey(key)) {
+                        continue;
                     }
-                    catch (Exception e) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("Exception occurred while trying to parse baggage with key value "
-                                    + Arrays.toString(keyAndValue) + ". Will ignore that entry.", e);
-                        }
+                    String value = percentDecode(keyAndValue[1].trim());
+                    Baggage baggage = this.braveBaggageManager.createBaggage(key);
+                    pairs.add(new AbstractMap.SimpleEntry<>(baggage, value));
+                    entryCount++;
+                }
+                catch (Exception e) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Exception occurred while trying to parse baggage with key value "
+                                + Arrays.toString(keyAndValue) + ". Will ignore that entry.", e);
                     }
                 }
             }
