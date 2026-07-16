@@ -1,0 +1,98 @@
+name: Build Branch
+on:
+  push:
+    branches: [ '[0-9]+.[0-9]+.x' ]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g"'
+  ORG_GRADLE_PROJECT_REPOSITORY_USERNAME: ${{ secrets.COMMERCIAL_ARTIFACTORY_USERNAME }}
+  ORG_GRADLE_PROJECT_REPOSITORY_PASSWORD: ${{ secrets.COMMERCIAL_ARTIFACTORY_PASSWORD }}
+jobs:
+  build-jdk21:
+    runs-on: ubuntu22-4-16
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: "Check Out Code"
+        uses: "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0" # 7.0.0
+        with:
+          fetch-depth: "0"
+          ref: "${{ github.ref }}"
+      - name: Setup Build
+        uses: ./.github/actions/setup-build
+        with:
+          java-version: 21
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Build
+        shell: bash
+        run: ./gradlew build
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
+
+  build-jdk11:
+    runs-on: ubuntu22-4-16
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: "Check Out Code"
+        uses: "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0" # 7.0.0
+        with:
+          fetch-depth: "0"
+          ref: "${{ github.ref }}"
+      - name: Setup Build
+        uses: ./.github/actions/setup-build
+        with:
+          java-version: 11
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Build
+        shell: bash
+        run: ./gradlew build
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
+
+  build-jdk17:
+    runs-on: ubuntu22-4-16
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: "Check Out Code"
+        uses: "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0" # 7.0.0
+        with:
+          fetch-depth: "0"
+          ref: "${{ github.ref }}"
+      - name: Setup Build
+        uses: ./.github/actions/setup-build
+        with:
+          java-version: 17
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Build
+        shell: bash
+        run: ./gradlew build
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
+
+  docker-tests:
+    runs-on: ubuntu22-4-16
+    if: ${{ github.repository_owner == 'micrometer-metrics' }}
+    steps:
+      - name: "Check Out Code"
+        uses: "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0" # 7.0.0
+        with:
+          fetch-depth: "0"
+          ref: "${{ github.ref }}"
+      - name: Setup Build
+        uses: ./.github/actions/setup-build
+        with:
+          java-version: 21
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+      - name: Docker Test
+        shell: bash
+        run: ./gradlew dockerTest
+      - name: Upload Build Reports
+        uses: ./.github/actions/upload-build-reports
+        if: ${{ failure() }}
