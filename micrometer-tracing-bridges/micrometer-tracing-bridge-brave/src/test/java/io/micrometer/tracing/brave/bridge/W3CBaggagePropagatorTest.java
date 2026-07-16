@@ -646,4 +646,80 @@ class W3CBaggagePropagatorTest {
         assertThat(baggageHeader.length()).isLessThanOrEqualTo(8192);
     }
 
+    @Test
+    void extract_ignoresOversizedKeyAndValue() {
+        TraceContextOrSamplingFlags context = context();
+        Map<String, String> carrier = new HashMap<>();
+        
+        // Key is 4097 bytes long (exceeds 4096)
+        StringBuilder largeKeySb = new StringBuilder();
+        for (int i = 0; i < 4097; i++) {
+            largeKeySb.append("k");
+        }
+        String largeKey = largeKeySb.toString();
+
+        // Value is 4097 bytes long (exceeds 4096)
+        StringBuilder largeValueSb = new StringBuilder();
+        for (int i = 0; i < 4097; i++) {
+            largeValueSb.append("v");
+        }
+        String largeValue = largeValueSb.toString();
+
+        // We test them in separate carriers to avoid triggering the 8192-byte total truncation
+        carrier.put("baggage", "valid-key=value,valid-key2=" + largeValue);
+
+        TraceContextOrSamplingFlags contextWithBaggage = propagator.contextWithBaggage(carrier, context, Map::get);
+
+        Map<String, String> baggageEntries = baggageEntries(contextWithBaggage);
+        assertThat(baggageEntries)
+            .containsEntry("valid-key", "value")
+            .doesNotContainKey("valid-key2");
+
+        // Now test large key
+        Map<String, String> carrier2 = new HashMap<>();
+        carrier2.put("baggage", "valid-key=value," + largeKey + "=value2");
+        TraceContextOrSamplingFlags contextWithBaggage2 = propagator.contextWithBaggage(carrier2, context, Map::get);
+        Map<String, String> baggageEntries2 = baggageEntries(contextWithBaggage2);
+        assertThat(baggageEntries2)
+            .containsEntry("valid-key", "value")
+            .doesNotContainKey(largeKey);
+    }
+
+    @Test
+    void inject_ignoresOversizedKeyAndValue() {
+        TraceContextOrSamplingFlags.Builder builder = context().toBuilder();
+        
+        // Key is 4097 bytes long (exceeds 4096)
+        StringBuilder largeKeySb = new StringBuilder();
+        for (int i = 0; i < 4097; i++) {
+            largeKeySb.append("k");
+        }
+        String largeKey = largeKeySb.toString();
+
+        // Value is 4097 bytes long (exceeds 4096)
+        StringBuilder largeValueSb = new StringBuilder();
+        for (int i = 0; i < 4097; i++) {
+            largeValueSb.append("v");
+        }
+        String largeValue = largeValueSb.toString();
+
+        BaggageField validField = BaggageField.create("valid-key");
+        BaggageField largeKeyField = BaggageField.create(largeKey);
+        BaggageField largeValueField = BaggageField.create("valid-key2");
+
+        builder.addExtra(BaggageFields.newFactory(Arrays.asList(validField, largeKeyField, largeValueField), 10).create());
+        TraceContextOrSamplingFlags context = builder.build();
+        
+        validField.updateValue(context, "value");
+        largeKeyField.updateValue(context, "value2");
+        largeValueField.updateValue(context, largeValue);
+
+        Map<String, String> carrier = new HashMap<>();
+
+        propagator.injector((Propagation.Setter<Map<String, String>, String>) Map::put)
+            .inject(context.context(), carrier);
+
+        assertThat(carrier).containsEntry("baggage", "valid-key=value");
+    }
+
 }
