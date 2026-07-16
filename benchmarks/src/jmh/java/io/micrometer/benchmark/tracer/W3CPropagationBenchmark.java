@@ -29,7 +29,6 @@ public class W3CPropagationBenchmark {
     private Propagation.Setter<Map<String, String>, String> setter;
     private Propagation.Getter<Map<String, String>, String> getter;
     
-    private Map<String, String> injectCarrier;
     private Map<String, String> extractCarrier;
     private Map<String, String> extractOversizedCarrier;
 
@@ -57,13 +56,15 @@ public class W3CPropagationBenchmark {
         this.setter = Map::put;
         this.getter = Map::get;
 
-        // Pre-allocate and pre-populate carriers to isolate propagation performance
-        this.injectCarrier = new HashMap<>();
-        
+        // Pre-allocate and pre-populate carriers for extraction to isolate parsing performance.
+        // We MUST include a valid traceparent header, otherwise Brave's extractor short-circuits
+        // and returns EMPTY immediately without ever parsing the baggage header.
         this.extractCarrier = new HashMap<>();
+        this.extractCarrier.put("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
         this.extractCarrier.put("baggage", "key1=value1,key2=value2%2Cwith%3Ddelimiters%3Band%20spaces");
 
         this.extractOversizedCarrier = new HashMap<>();
+        this.extractOversizedCarrier.put("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 500; i++) {
             sb.append("k").append(i).append("=").append("v").append(i).append(",");
@@ -74,8 +75,9 @@ public class W3CPropagationBenchmark {
 
     @Benchmark
     public Map<String, String> inject() {
-        this.propagation.injector(this.setter).inject(this.context, this.injectCarrier);
-        return this.injectCarrier;
+        Map<String, String> localCarrier = new HashMap<>();
+        this.propagation.injector(this.setter).inject(this.context, localCarrier);
+        return localCarrier;
     }
 
     @Benchmark
