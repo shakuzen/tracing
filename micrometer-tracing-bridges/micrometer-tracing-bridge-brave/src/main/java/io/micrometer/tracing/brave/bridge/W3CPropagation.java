@@ -285,8 +285,7 @@ class W3CBaggagePropagator {
             }
             StringBuilder headerContent = new StringBuilder();
             // We ignore local keys - they won't get propagated
-            String[] strings = this.localFields.toArray(new String[0]);
-            Map<String, String> filtered = extra.toMapFilteringFieldNames(strings);
+            Map<String, String> filtered = extra.toMapFilteringFieldNames(this.localFields.toArray(new String[0]));
             int entryCount = 0;
             for (Map.Entry<String, String> entry : filtered.entrySet()) {
                 if (TRACE_STATE.equalsIgnoreCase(entry.getKey())) {
@@ -304,6 +303,7 @@ class W3CBaggagePropagator {
                 if (value.length() > 4096) {
                     continue;
                 }
+                // note: we do not support metadata currently
                 int entryLength = key.length() + 1 + value.length() + 1; // "key=value,"
                 if (headerContent.length() + entryLength - 1 > MAX_BAGGAGE_BYTES) {
                     break;
