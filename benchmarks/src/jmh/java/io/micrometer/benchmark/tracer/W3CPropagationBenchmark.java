@@ -25,11 +25,15 @@ import java.util.concurrent.TimeUnit;
 public class W3CPropagationBenchmark {
 
     private W3CPropagation propagation;
+
     private TraceContext context;
+
     private Propagation.Setter<Map<String, String>, String> setter;
+
     private Propagation.Getter<Map<String, String>, String> getter;
-    
+
     private Map<String, String> extractCarrier;
+
     private Map<String, String> extractOversizedCarrier;
 
     @Setup
@@ -51,13 +55,15 @@ public class W3CPropagationBenchmark {
         TraceContext dummyContext = contextBuilder.build();
         field1.updateValue(dummyContext, "value1");
         field2.updateValue(dummyContext, "value2,with=delimiters;and spaces");
-        
+
         this.context = dummyContext;
         this.setter = Map::put;
         this.getter = Map::get;
 
-        // Pre-allocate and pre-populate carriers for extraction to isolate parsing performance.
-        // We MUST include a valid traceparent header, otherwise Brave's extractor short-circuits
+        // Pre-allocate and pre-populate carriers for extraction to isolate parsing
+        // performance.
+        // We MUST include a valid traceparent header, otherwise Brave's extractor
+        // short-circuits
         // and returns EMPTY immediately without ever parsing the baggage header.
         this.extractCarrier = new HashMap<>();
         this.extractCarrier.put("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");

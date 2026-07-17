@@ -34,7 +34,6 @@ import static java.util.Collections.singletonList;
  * @author Marcin Grzejszczak
  * @since 1.0.0
  */
-@SuppressWarnings({ "unchecked", "deprecation" })
 public class W3CPropagation extends Propagation.Factory implements Propagation<String> {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(W3CPropagation.class.getName());
@@ -215,7 +214,8 @@ class W3CBaggagePropagator {
         for (byte b : bytes) {
             if (isBaggageOctet(b)) {
                 sb.append((char) b);
-            } else {
+            }
+            else {
                 sb.append('%');
                 sb.append(HEX_DIGITS[(b >> 4) & 0xF]);
                 sb.append(HEX_DIGITS[b & 0xF]);
@@ -226,7 +226,8 @@ class W3CBaggagePropagator {
 
     private static boolean isBaggageOctet(byte b) {
         // baggage-octet = %x21 / %x23-2B / %x2D-3A / %x3C-5B / %x5D-7E
-        // Excludes: CTLs, whitespace, DQUOTE ("), percent (%), comma (,), semicolon (;), equals (=), and backslash (\)
+        // Excludes: CTLs, whitespace, DQUOTE ("), percent (%), comma (,), semicolon (;),
+        // equals (=), and backslash (\)
         if (b < 0x21 || b > 0x7E) {
             return false;
         }
@@ -259,7 +260,8 @@ class W3CBaggagePropagator {
                 out.write(b);
             }
             return out.toString(java.nio.charset.StandardCharsets.UTF_8.name());
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             return value;
         }
     }
@@ -322,7 +324,8 @@ class W3CBaggagePropagator {
         }
         if (baggageHeader.length() > MAX_BAGGAGE_BYTES) {
             if (log.isDebugEnabled()) {
-                log.debug("Baggage header length (" + baggageHeader.length() + ") exceeds W3C limit of 8192 bytes. Truncating header.");
+                log.debug("Baggage header length (" + baggageHeader.length()
+                        + ") exceeds W3C limit of 8192 bytes. Truncating header.");
             }
             baggageHeader = baggageHeader.substring(0, MAX_BAGGAGE_BYTES);
         }
