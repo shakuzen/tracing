@@ -18,6 +18,8 @@ import io.micrometer.common.util.internal.logging.InternalLoggerFactory;
 import io.micrometer.tracing.Baggage;
 import io.micrometer.tracing.BaggageManager;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import static brave.propagation.tracecontext.TraceContextPropagation.TRACEPARENT;
@@ -209,7 +211,7 @@ class W3CBaggagePropagator {
     }
 
     private static String percentEncode(String value) {
-        byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
         StringBuilder sb = new StringBuilder(bytes.length);
         for (byte b : bytes) {
             if (isBaggageOctet(b)) {
@@ -242,8 +244,8 @@ class W3CBaggagePropagator {
             return value;
         }
         try {
-            byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(bytes.length);
+            byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+            ByteArrayOutputStream out = new ByteArrayOutputStream(bytes.length);
             for (int i = 0; i < bytes.length; i++) {
                 byte b = bytes[i];
                 if (b == '%') {
@@ -259,7 +261,7 @@ class W3CBaggagePropagator {
                 }
                 out.write(b);
             }
-            return out.toString(java.nio.charset.StandardCharsets.UTF_8.name());
+            return out.toString(StandardCharsets.UTF_8.name());
         }
         catch (Exception e) {
             return value;
@@ -306,7 +308,7 @@ class W3CBaggagePropagator {
                 if (headerContent.length() + entryLength - 1 > MAX_BAGGAGE_BYTES) {
                     break;
                 }
-                headerContent.append(key).append("=").append(value).append(",");
+                headerContent.append(key).append('=').append(value).append(',');
                 entryCount++;
             }
             if (headerContent.length() > 0) {
@@ -329,8 +331,7 @@ class W3CBaggagePropagator {
             }
             baggageHeader = baggageHeader.substring(0, MAX_BAGGAGE_BYTES);
         }
-        List<AbstractMap.SimpleEntry<Baggage, String>> pairs = addBaggageToContext(baggageHeader);
-        return flags.toBuilder().addExtra(new BraveBaggageFields(pairs)).build();
+        return flags.toBuilder().addExtra(new BraveBaggageFields(addBaggageToContext(baggageHeader))).build();
     }
 
     List<AbstractMap.SimpleEntry<Baggage, String>> addBaggageToContext(String baggageHeader) {
@@ -357,6 +358,7 @@ class W3CBaggagePropagator {
                     if (value.length() > 4096) {
                         continue;
                     }
+                    @SuppressWarnings("deprecation")
                     Baggage baggage = this.braveBaggageManager.createBaggage(key);
                     pairs.add(new AbstractMap.SimpleEntry<>(baggage, value));
                     entryCount++;
