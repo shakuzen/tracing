@@ -226,14 +226,31 @@ class W3CBaggagePropagator {
         return sb.toString();
     }
 
+    /**
+     * Check a character against the W3C Baggage specification definition for valid
+     * baggage characters. <pre>{@code
+     * baggage-octet          =  %x21 / %x23-2B / %x2D-3A / %x3C-5B / %x5D-7E
+     *                           ; US-ASCII characters excluding CTLs,
+     *                           ; whitespace, DQUOTE, comma, semicolon,
+     *                           ; and backslash
+     * }
+     * </pre>
+     * @param b UTF-8 character as a byte
+     * @return whether it is a valid baggage character
+     * @see <a href="https://www.w3.org/TR/baggage/#definition">W3C Baggage
+     * specification</a>
+     */
     private static boolean isBaggageOctet(byte b) {
-        // baggage-octet = %x21 / %x23-2B / %x2D-3A / %x3C-5B / %x5D-7E
-        // Excludes: CTLs, whitespace, DQUOTE ("), percent (%), comma (,), semicolon (;),
-        // equals (=), and backslash (\)
         if (b < 0x21 || b > 0x7E) {
             return false;
         }
-        if (b == 0x22 || b == 0x25 || b == 0x2C || b == 0x3B || b == 0x3D || b == 0x5C) {
+        if (b == 0x22 // double quote '"'
+                || b == 0x25 // percent '%'
+                || b == 0x2C // comma ','
+                || b == 0x3B // semicolon ';'
+                || b == 0x3D // equals '='
+                || b == 0x5C // backslash '\'
+        ) {
             return false;
         }
         return true;
