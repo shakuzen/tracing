@@ -197,17 +197,71 @@ class W3CBaggagePropagator {
 
     private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
-    private static boolean isValidBaggageKey(String key) {
+    private static final long INVALID_KEY_MASK_LOW;
+
+    private static final long INVALID_KEY_MASK_HIGH;
+
+    static {
+        long low = 0;
+        long high = 0;
+        // Characters 0 to 32 are invalid
+        for (int i = 0; i <= 32; i++) {
+            low |= (1L << i);
+        }
+        // DEL (127) is invalid
+        high |= (1L << (127 - 64));
+        char[] delimiters = "\"(),/:;<=>?@[\\]{}".toCharArray();
+        for (char c : delimiters) {
+            if (c < 64) {
+                low |= (1L << c);
+            } else {
+                high |= (1L << (c - 64));
+            }
+        }
+        INVALID_KEY_MASK_LOW = low;
+        INVALID_KEY_MASK_HIGH = high;
+    }
+
+    /**
+     * Check a baggage key against the specification of valid characters.
+     * <pre>{@code
+     * key            =  token ; as defined in RFC 7230, Section 3.2.6
+     *
+     * token          = 1*tchar
+     *
+     * tchar          = "!" / "#" / "$" / "%" / "&" / "'" / "*"
+     *                / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
+     *                / DIGIT / ALPHA
+     *                ; any VCHAR, except delimiters
+     * 
+     * Delimiters are chosen from the set of US-ASCII visual characters not allowed in a token
+     *    (DQUOTE and "(),/:;<=>?@[\]{}").
+     * }
+     * </pre>
+     * @param key baggage key to check
+     * @return whether the key is invalid
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.6">Section 3.2.6 of RFC7230</a>
+     */
+    private static boolean isInvalidBaggageKey(String key) {
         if (key == null || key.trim().isEmpty() || key.length() > 4096) {
-            return false;
+            return true;
         }
         for (int i = 0; i < key.length(); i++) {
             char ch = key.charAt(i);
-            if (ch < ' ' || ch > '~') {
-                return false;
+            if (ch >= 128) {
+                return true;
+            }
+            if (ch < 64) {
+                if (((INVALID_KEY_MASK_LOW >>> ch) & 1L) != 0) {
+                    return true;
+                }
+            } else {
+                if (((INVALID_KEY_MASK_HIGH >>> (ch - 64)) & 1L) != 0) {
+                    return true;
+                }
             }
         }
-        return true;
+        return false;
     }
 
     private static String percentEncode(String value) {
@@ -311,11 +365,10 @@ class W3CBaggagePropagator {
                 if (entryCount >= MAX_BAGGAGE_ENTRIES) {
                     break;
                 }
-                String rawKey = entry.getKey();
-                if (!isValidBaggageKey(rawKey)) {
+                String key = entry.getKey();
+                if (isInvalidBaggageKey(key)) {
                     continue;
                 }
-                String key = percentEncode(rawKey);
                 String value = percentEncode(entry.getValue());
                 if (value.length() > 4096) {
                     continue;
@@ -367,8 +420,8 @@ class W3CBaggagePropagator {
             boolean hasValue = keyAndValue.length == 2 && !keyAndValue[1].isEmpty();
             if (hasValue) {
                 try {
-                    String key = percentDecode(keyAndValue[0].trim());
-                    if (!isValidBaggageKey(key)) {
+                    String key = keyAndValue[0].trim();
+                    if (isInvalidBaggageKey(key)) {
                         continue;
                     }
                     String value = percentDecode(keyAndValue[1].trim());

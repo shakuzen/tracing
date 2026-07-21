@@ -560,6 +560,27 @@ class W3CBaggagePropagatorTest {
     }
 
     @Test
+    void extract_ignoresKeysWithDelimitersAndSpaces() {
+        TraceContextOrSamplingFlags context = context();
+        Map<String, String> carrier = new HashMap<>();
+        // Keys containing space, delimiters like '?', '<', '>', '@', '/', '[', ']', '{', '}'
+        carrier.put("baggage", "valid-key=value,key?with?question=value2,key<with<brackets=value3,key@with@at=value4,key/with/slash=value5,key[with]brackets=value6,key{with}braces=value7,key with space=value8");
+
+        TraceContextOrSamplingFlags contextWithBaggage = propagator.contextWithBaggage(carrier, context, Map::get);
+
+        Map<String, String> baggageEntries = baggageEntries(contextWithBaggage);
+        assertThat(baggageEntries).containsEntry("valid-key", "value")
+            .hasSize(1)
+            .doesNotContainKey("key?with?question")
+            .doesNotContainKey("key<with<brackets")
+            .doesNotContainKey("key@with@at")
+            .doesNotContainKey("key/with/slash")
+            .doesNotContainKey("key[with]brackets")
+            .doesNotContainKey("key{with}braces")
+            .doesNotContainKey("key with space");
+    }
+
+    @Test
     void inject_ignoresInvalidKeys() {
         TraceContextOrSamplingFlags.Builder builder = context().toBuilder();
         BaggageField validField = BaggageField.create("valid-key");
@@ -568,6 +589,25 @@ class W3CBaggagePropagatorTest {
         TraceContextOrSamplingFlags context = builder.build();
         validField.updateValue(context, "value");
         invalidField.updateValue(context, "value2");
+        Map<String, String> carrier = new HashMap<>();
+
+        propagator.injector((Propagation.Setter<Map<String, String>, String>) Map::put)
+            .inject(context.context(), carrier);
+
+        assertThat(carrier).containsEntry("baggage", "valid-key=value");
+    }
+
+    @Test
+    void inject_ignoresKeysWithDelimitersAndSpaces() {
+        TraceContextOrSamplingFlags.Builder builder = context().toBuilder();
+        BaggageField validField = BaggageField.create("valid-key");
+        BaggageField spaceField = BaggageField.create("key with space");
+        BaggageField delimiterField = BaggageField.create("key?with?question");
+        builder.addExtra(BaggageFields.newFactory(Arrays.asList(validField, spaceField, delimiterField), 10).create());
+        TraceContextOrSamplingFlags context = builder.build();
+        validField.updateValue(context, "value");
+        spaceField.updateValue(context, "value2");
+        delimiterField.updateValue(context, "value3");
         Map<String, String> carrier = new HashMap<>();
 
         propagator.injector((Propagation.Setter<Map<String, String>, String>) Map::put)
