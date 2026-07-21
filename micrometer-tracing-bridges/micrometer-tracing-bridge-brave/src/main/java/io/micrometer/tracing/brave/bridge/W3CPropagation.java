@@ -249,7 +249,8 @@ class W3CBaggagePropagator {
         }
         for (int i = 0; i < key.length(); i++) {
             char ch = key.charAt(i);
-            if (ch >= 128) {
+            // CTL are invalid, DEL and non-ASCII chars are invalid
+            if (ch <= 32 || ch >= 127) {
                 return true;
             }
             if (ch < 64) {
@@ -297,14 +298,15 @@ class W3CBaggagePropagator {
      * specification</a>
      */
     private static boolean isBaggageOctet(byte b) {
+        // excludes CTL = %x00-1F / %x7F, space %x20, non-ASCII chars
         if (b < 0x21 || b > 0x7E) {
             return false;
         }
         if (b == 0x22 // double quote '"'
-                || b == 0x25 // percent '%'
+                || b == 0x25 // percent '%' not mentioned in ABNF
                 || b == 0x2C // comma ','
                 || b == 0x3B // semicolon ';'
-                || b == 0x3D // equals '='
+                || b == 0x3D // equals '=' not mentioned in ABNF
                 || b == 0x5C // backslash '\'
         ) {
             return false;
