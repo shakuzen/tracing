@@ -214,7 +214,8 @@ class W3CBaggagePropagator {
         for (char c : delimiters) {
             if (c < 64) {
                 low |= (1L << c);
-            } else {
+            }
+            else {
                 high |= (1L << (c - 64));
             }
         }
@@ -223,8 +224,7 @@ class W3CBaggagePropagator {
     }
 
     /**
-     * Check a baggage key against the specification of valid characters.
-     * <pre>{@code
+     * Check a baggage key against the specification of valid characters. <pre>{@code
      * key            =  token ; as defined in RFC 7230, Section 3.2.6
      *
      * token          = 1*tchar
@@ -233,14 +233,15 @@ class W3CBaggagePropagator {
      *                / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
      *                / DIGIT / ALPHA
      *                ; any VCHAR, except delimiters
-     * 
+     *
      * Delimiters are chosen from the set of US-ASCII visual characters not allowed in a token
      *    (DQUOTE and "(),/:;<=>?@[\]{}").
      * }
      * </pre>
      * @param key baggage key to check
      * @return whether the key is invalid
-     * @see <a href="https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.6">Section 3.2.6 of RFC7230</a>
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.6">Section
+     * 3.2.6 of RFC7230</a>
      */
     private static boolean isInvalidBaggageKey(String key) {
         if (key == null || key.trim().isEmpty() || key.length() > 4096) {
@@ -255,7 +256,8 @@ class W3CBaggagePropagator {
                 if (((INVALID_KEY_MASK_LOW >>> ch) & 1L) != 0) {
                     return true;
                 }
-            } else {
+            }
+            else {
                 if (((INVALID_KEY_MASK_HIGH >>> (ch - 64)) & 1L) != 0) {
                     return true;
                 }

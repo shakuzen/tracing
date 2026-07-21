@@ -563,8 +563,9 @@ class W3CBaggagePropagatorTest {
     void extract_ignoresKeysWithDelimitersAndSpaces() {
         TraceContextOrSamplingFlags context = context();
         Map<String, String> carrier = new HashMap<>();
-        // Keys containing space, delimiters like '?', '<', '>', '@', '/', '[', ']', '{', '}'
-        carrier.put("baggage", "valid-key=value,key?with?question=value2,key<with<brackets=value3,key@with@at=value4,key/with/slash=value5,key[with]brackets=value6,key{with}braces=value7,key with space=value8");
+        // Keys containing space, delimiters '?', '<', '>', '@', '/', '[', ']', '{', '}'
+        carrier.put("baggage",
+                "valid-key=value,key?with?question=value2,key<with<brackets=value3,key@with@at=value4,key/with/slash=value5,key[with]brackets=value6,key{with}braces=value7,key with space=value8");
 
         TraceContextOrSamplingFlags contextWithBaggage = propagator.contextWithBaggage(carrier, context, Map::get);
 
