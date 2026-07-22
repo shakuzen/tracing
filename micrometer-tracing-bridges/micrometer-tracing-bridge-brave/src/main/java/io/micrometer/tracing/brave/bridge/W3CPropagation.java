@@ -224,7 +224,8 @@ class W3CBaggagePropagator {
     }
 
     /**
-     * Check a baggage key against the specification of valid characters. <pre>{@code
+     * Check a baggage key against the specification of valid characters. <pre>
+     * {@code
      * key            =  token ; as defined in RFC 7230, Section 3.2.6
      *
      * token          = 1*tchar
@@ -267,11 +268,11 @@ class W3CBaggagePropagator {
         return false;
     }
 
-    private static String percentEncode(String value) {
-        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+    private static String percentEncode(String rawValue) {
+        byte[] bytes = rawValue.getBytes(StandardCharsets.UTF_8);
         StringBuilder sb = new StringBuilder(bytes.length);
         for (byte b : bytes) {
-            if (isBaggageOctet(b)) {
+            if (isBaggageOctet(b) && b != '%' && b != '=') {
                 sb.append((char) b);
             }
             else {
@@ -285,7 +286,8 @@ class W3CBaggagePropagator {
 
     /**
      * Check a character against the W3C Baggage specification definition for valid
-     * baggage characters. <pre>{@code
+     * baggage characters. <pre>
+     * {@code
      * baggage-octet          =  %x21 / %x23-2B / %x2D-3A / %x3C-5B / %x5D-7E
      *                           ; US-ASCII characters excluding CTLs,
      *                           ; whitespace, DQUOTE, comma, semicolon,
@@ -303,10 +305,8 @@ class W3CBaggagePropagator {
             return false;
         }
         if (b == 0x22 // double quote '"'
-                || b == 0x25 // percent '%' not mentioned in ABNF
                 || b == 0x2C // comma ','
                 || b == 0x3B // semicolon ';'
-                || b == 0x3D // equals '=' not mentioned in ABNF
                 || b == 0x5C // backslash '\'
         ) {
             return false;
