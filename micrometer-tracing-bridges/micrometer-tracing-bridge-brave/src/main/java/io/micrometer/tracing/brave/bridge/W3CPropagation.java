@@ -409,8 +409,8 @@ class W3CBaggagePropagator {
     }
 
     List<AbstractMap.SimpleEntry<Baggage, String>> addBaggageToContext(String baggageHeader) {
-        List<AbstractMap.SimpleEntry<Baggage, String>> pairs = new ArrayList<>();
-        String[] entries = baggageHeader.split(",");
+        String[] entries = baggageHeader.split(",", MAX_BAGGAGE_ENTRIES + 1);
+        List<AbstractMap.SimpleEntry<Baggage, String>> pairs = new ArrayList<>(entries.length);
         int entryCount = 0;
         for (String entry : entries) {
             if (entryCount >= MAX_BAGGAGE_ENTRIES) {
