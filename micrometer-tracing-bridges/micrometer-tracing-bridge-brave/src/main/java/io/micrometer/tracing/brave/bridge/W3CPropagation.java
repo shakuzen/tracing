@@ -187,8 +187,10 @@ class W3CBaggagePropagator {
 
     private static final List<String> FIELDS = singletonList(FIELD);
 
+    // https://www.w3.org/TR/baggage/#limits
     private static final int MAX_BAGGAGE_ENTRIES = 64;
 
+    // https://www.w3.org/TR/baggage/#limits
     private static final int MAX_BAGGAGE_BYTES = 8192;
 
     private final BaggageManager braveBaggageManager;
@@ -245,7 +247,7 @@ class W3CBaggagePropagator {
      * 3.2.6 of RFC7230</a>
      */
     private static boolean isInvalidBaggageKey(String key) {
-        if (key == null || key.trim().isEmpty() || key.length() > 4096) {
+        if (key == null || key.trim().isEmpty()) {
             return true;
         }
         for (int i = 0; i < key.length(); i++) {
@@ -374,9 +376,6 @@ class W3CBaggagePropagator {
                     continue;
                 }
                 String value = percentEncode(entry.getValue());
-                if (value.length() > 4096) {
-                    continue;
-                }
                 // note: we do not support metadata currently
                 int entryLength = key.length() + 1 + value.length() + 1; // "key=value,"
                 if (headerContent.length() + entryLength - 1 > MAX_BAGGAGE_BYTES) {
@@ -429,9 +428,6 @@ class W3CBaggagePropagator {
                         continue;
                     }
                     String value = percentDecode(keyAndValue[1].trim());
-                    if (value.length() > 4096) {
-                        continue;
-                    }
                     @SuppressWarnings("deprecation")
                     Baggage baggage = this.braveBaggageManager.createBaggage(key);
                     pairs.add(new AbstractMap.SimpleEntry<>(baggage, value));
