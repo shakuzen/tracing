@@ -89,7 +89,7 @@ public class W3CPropagation extends Propagation.Factory implements Propagation<S
         };
     }
 
-    private <R> void addTraceState(Setter<R, String> setter, TraceContext context, R carrier) {
+    private <R> void addTraceState(Setter<R, String> setter, TraceContext context, @Nullable R carrier) {
         if (carrier != null && this.braveBaggageManager != null) {
             Baggage baggage = this.braveBaggageManager.getBaggage(BraveTraceContext.fromBrave(context), TRACESTATE);
             if (baggage == null) {
@@ -144,7 +144,7 @@ public class W3CPropagation extends Propagation.Factory implements Propagation<S
         };
     }
 
-    private <R> TraceContextOrSamplingFlags withBaggage(TraceContextOrSamplingFlags context, R carrier,
+    private <R> TraceContextOrSamplingFlags withBaggage(TraceContextOrSamplingFlags context, @Nullable R carrier,
             Getter<R, String> getter) {
         if (context.context() == null) {
             return context;
@@ -152,7 +152,7 @@ public class W3CPropagation extends Propagation.Factory implements Propagation<S
         return this.baggagePropagator.contextWithBaggage(carrier, context, getter);
     }
 
-    TraceContextOrSamplingFlags context(TraceContext contextFromParentHeader, String traceStateHeader) {
+    TraceContextOrSamplingFlags context(TraceContext contextFromParentHeader, @Nullable String traceStateHeader) {
         if (!StringUtils.isNotBlank(traceStateHeader)) {
             return TraceContextOrSamplingFlags.create(contextFromParentHeader);
         }
@@ -247,7 +247,7 @@ class W3CBaggagePropagator {
      * 3.2.6 of RFC7230</a>
      */
     private static boolean isInvalidBaggageKey(String key) {
-        if (key == null || key.trim().isEmpty()) {
+        if (key.trim().isEmpty()) {
             return true;
         }
         for (int i = 0; i < key.length(); i++) {
@@ -391,7 +391,7 @@ class W3CBaggagePropagator {
         };
     }
 
-    <R> TraceContextOrSamplingFlags contextWithBaggage(R carrier, TraceContextOrSamplingFlags flags,
+    <R> TraceContextOrSamplingFlags contextWithBaggage(@Nullable R carrier, TraceContextOrSamplingFlags flags,
             Propagation.Getter<R, String> getter) {
         String baggageHeader = getter.get(carrier, FIELD);
         if (baggageHeader == null || baggageHeader.isEmpty()) {
@@ -410,11 +410,9 @@ class W3CBaggagePropagator {
     List<AbstractMap.SimpleEntry<Baggage, String>> addBaggageToContext(String baggageHeader) {
         String[] entries = baggageHeader.split(",", MAX_BAGGAGE_ENTRIES + 1);
         List<AbstractMap.SimpleEntry<Baggage, String>> pairs = new ArrayList<>(entries.length);
-        int entryCount = 0;
-        for (String entry : entries) {
-            if (entryCount >= MAX_BAGGAGE_ENTRIES) {
-                break;
-            }
+        int maxToInspect = Math.min(entries.length, MAX_BAGGAGE_ENTRIES);
+        for (int i = 0; i < maxToInspect; i++) {
+            String entry = entries[i];
             int beginningOfMetadata = entry.indexOf(";");
             if (beginningOfMetadata > 0) {
                 entry = entry.substring(0, beginningOfMetadata);
@@ -431,7 +429,6 @@ class W3CBaggagePropagator {
                     @SuppressWarnings("deprecation")
                     Baggage baggage = this.braveBaggageManager.createBaggage(key);
                     pairs.add(new AbstractMap.SimpleEntry<>(baggage, value));
-                    entryCount++;
                 }
                 catch (Exception e) {
                     if (log.isDebugEnabled()) {

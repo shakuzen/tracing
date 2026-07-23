@@ -193,6 +193,21 @@ class W3CBaggagePropagatorTest {
     }
 
     @Test
+    void inject_nullValue() {
+        TraceContextOrSamplingFlags.Builder builder = context().toBuilder();
+        BaggageField field = BaggageField.create("my-key");
+        builder.addExtra(BaggageFields.newFactory(Arrays.asList(field), 10).create());
+        TraceContextOrSamplingFlags context = builder.build();
+        field.updateValue(context, null);
+        Map<String, String> carrier = new HashMap<>();
+
+        propagator.injector((Propagation.Setter<Map<String, String>, String>) Map::put)
+            .inject(context.context(), carrier);
+
+        assertThat(carrier).isEmpty();
+    }
+
+    @Test
     void inject_noBaggage() {
         TraceContextOrSamplingFlags context = context();
         Map<String, String> carrier = new HashMap<>();
@@ -475,6 +490,28 @@ class W3CBaggagePropagatorTest {
             .inject(context.context(), carrier);
 
         assertThat(carrier).containsEntry("baggage", "valid-key=value");
+    }
+
+    @Test
+    void extract_limitsTo64EntriesWithInvalidKey() {
+        TraceContextOrSamplingFlags context = context();
+        Map<String, String> carrier = new HashMap<>();
+        StringBuilder sb = new StringBuilder("invalid key=value,");
+        for (int i = 1; i <= 70; i++) {
+            sb.append("k").append(i).append("=v").append(i).append(",");
+        }
+        sb.setLength(sb.length() - 1);
+        carrier.put("baggage", sb.toString());
+
+        TraceContextOrSamplingFlags contextWithBaggage = propagator.contextWithBaggage(carrier, context, Map::get);
+
+        Map<String, String> baggageEntries = baggageEntries(contextWithBaggage);
+        // Only inspects first 64 list-members in header: item 0 (invalid) + items 1..63 (k1..k63)
+        assertThat(baggageEntries).hasSize(63);
+        assertThat(baggageEntries).containsEntry("k63", "v63");
+        assertThat(baggageEntries).doesNotContainKey("k64");
+        // Verify no value contains unparsed header remnants
+        assertThat(baggageEntries.values()).allSatisfy(v -> assertThat(v).doesNotContain(","));
     }
 
     @Test
