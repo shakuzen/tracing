@@ -19,7 +19,6 @@ import io.micrometer.tracing.handler.PropagatingReceiverTracingObservationHandle
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 
-import java.net.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
