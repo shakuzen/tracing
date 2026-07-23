@@ -1,3 +1,9 @@
+configurations {
+    jmhLegacy {
+        extendsFrom jmh
+    }
+}
+
 dependencies {
     jmh project(':micrometer-tracing-bridge-brave')
     jmh project(':micrometer-tracing-bridge-otel')
@@ -11,6 +17,11 @@ dependencies {
     jmhAnnotationProcessor libs.jmhGeneratorAnnProcess
 }
 
+configurations.jmhLegacy.resolutionStrategy.dependencySubstitution {
+    substitute project(':micrometer-tracing-bridge-brave') \
+        using module('io.micrometer:micrometer-tracing-bridge-brave:1.4.15')
+}
+
 jmh {
     jmhVersion = '1.37'
     fork = 2
@@ -21,4 +32,21 @@ jmh {
     if (project.hasProperty('jmhInclude')) {
         includes = [project.property('jmhInclude')]
     }
+    profilers = ['gc']
+}
+
+tasks.register('jmhLegacy', me.champeau.jmh.JMHTask) {
+    description = 'Runs JMH benchmarks against published Micrometer Tracing 1.4.15'
+    group = 'jmh'
+    dependsOn tasks.jmhJar
+    jarArchive.set(tasks.jmhJar.archiveFile)
+    jmhClasspath.setFrom(configurations.jmhLegacy, tasks.jmhJar.archiveFile)
+    profilers = ['gc']
+    resultsFile.set(file("${layout.buildDirectory.get()}/results/jmh/results-1.4.15.txt"))
+}
+
+tasks.register('jmhCompare') {
+    description = 'Runs JMH benchmarks for both current PR code and 1.4.15'
+    group = 'jmh'
+    dependsOn tasks.jmh, tasks.jmhLegacy
 }

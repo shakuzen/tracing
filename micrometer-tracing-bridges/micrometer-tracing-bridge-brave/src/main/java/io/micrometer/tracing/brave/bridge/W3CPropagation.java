@@ -195,7 +195,7 @@ class W3CBaggagePropagator {
 
     private final BaggageManager braveBaggageManager;
 
-    private final List<String> localFields;
+    private final String[] localFieldsArray;
 
     private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
@@ -247,7 +247,7 @@ class W3CBaggagePropagator {
      * 3.2.6 of RFC7230</a>
      */
     private static boolean isInvalidBaggageKey(String key) {
-        if (key.trim().isEmpty()) {
+        if (key.isEmpty()) {
             return true;
         }
         for (int i = 0; i < key.length(); i++) {
@@ -347,7 +347,7 @@ class W3CBaggagePropagator {
 
     W3CBaggagePropagator(BaggageManager baggageManager, List<String> localFields) {
         this.braveBaggageManager = baggageManager;
-        this.localFields = localFields;
+        this.localFieldsArray = localFields.toArray(new String[0]);
     }
 
     public List<String> keys() {
@@ -362,7 +362,7 @@ class W3CBaggagePropagator {
             }
             StringBuilder headerContent = new StringBuilder();
             // We ignore local keys - they won't get propagated
-            Map<String, String> filtered = extra.toMapFilteringFieldNames(this.localFields.toArray(new String[0]));
+            Map<String, String> filtered = extra.toMapFilteringFieldNames(this.localFieldsArray);
             int entryCount = 0;
             for (Map.Entry<String, String> entry : filtered.entrySet()) {
                 if (TRACE_STATE.equalsIgnoreCase(entry.getKey())) {
