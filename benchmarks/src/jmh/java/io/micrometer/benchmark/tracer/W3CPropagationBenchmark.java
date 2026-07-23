@@ -51,12 +51,12 @@ public class W3CPropagationBenchmark {
         Propagation.Factory factory = factoryBuilder.build();
 
         TraceContext.Builder contextBuilder = TraceContext.newBuilder().traceId(1L).spanId(2L).sampled(true);
-        // We use a dummy context to update values
-        TraceContext dummyContext = contextBuilder.build();
-        field1.updateValue(dummyContext, "value1");
-        field2.updateValue(dummyContext, "value2,with=delimiters;and spaces");
+        // We decorate the context with baggage fields so BaggageFields extra is present
+        TraceContext decoratedContext = factory.decorate(contextBuilder.build());
+        field1.updateValue(decoratedContext, "value1");
+        field2.updateValue(decoratedContext, "value2,with=delimiters;and spaces");
 
-        this.context = dummyContext;
+        this.context = decoratedContext;
         this.setter = Map::put;
         this.getter = Map::get;
 
