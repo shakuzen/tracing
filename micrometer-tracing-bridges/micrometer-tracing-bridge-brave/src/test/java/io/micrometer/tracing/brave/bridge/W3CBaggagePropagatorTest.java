@@ -9,7 +9,6 @@ import brave.baggage.*;
 import brave.context.slf4j.MDCScopeDecorator;
 import brave.internal.baggage.BaggageFields;
 import brave.propagation.*;
-import com.sun.net.httpserver.HttpServer;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationHandler;
 import io.micrometer.observation.tck.TestObservationRegistry;
@@ -20,11 +19,8 @@ import io.micrometer.tracing.handler.PropagatingReceiverTracingObservationHandle
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 
-import java.io.OutputStream;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import static java.util.Collections.singletonMap;
@@ -506,7 +502,8 @@ class W3CBaggagePropagatorTest {
         TraceContextOrSamplingFlags contextWithBaggage = propagator.contextWithBaggage(carrier, context, Map::get);
 
         Map<String, String> baggageEntries = baggageEntries(contextWithBaggage);
-        // Only inspects first 64 list-members in header: item 0 (invalid) + items 1..63 (k1..k63)
+        // Only inspects first 64 list-members in header: item 0 (invalid) + items 1..63
+        // (k1..k63)
         assertThat(baggageEntries).hasSize(63);
         assertThat(baggageEntries).containsEntry("k63", "v63");
         assertThat(baggageEntries).doesNotContainKey("k64");
