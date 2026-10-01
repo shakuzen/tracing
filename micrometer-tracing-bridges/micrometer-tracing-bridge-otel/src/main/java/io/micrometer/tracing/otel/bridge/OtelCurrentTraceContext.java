@@ -92,7 +92,7 @@ public class OtelCurrentTraceContext implements CurrentTraceContext {
         Context newContext = oldContext.with(fromContext).with(updatedBaggage).with(OTEL_CONTEXT_KEY, otelTraceContext);
         io.opentelemetry.context.Scope newScope = newContext.makeCurrent();
         otelTraceContext.updateContext(newContext);
-        return new WrappedScope(newScope, otelTraceContext, oldContext);
+        return new WrappedScope(newScope);
     }
 
     private static Baggage mergeBaggage(Baggage currentBaggage, Baggage oldBaggage) {
@@ -140,26 +140,12 @@ public class OtelCurrentTraceContext implements CurrentTraceContext {
 
         final io.opentelemetry.context.Scope scope;
 
-        final @Nullable OtelTraceContext currentOtelTraceContext;
-
-        final @Nullable Context oldContext;
-
         WrappedScope(io.opentelemetry.context.Scope scope) {
-            this(scope, null, null);
-        }
-
-        WrappedScope(io.opentelemetry.context.Scope scope, @Nullable OtelTraceContext currentOtelTraceContext,
-                @Nullable Context oldContext) {
             this.scope = scope;
-            this.currentOtelTraceContext = currentOtelTraceContext;
-            this.oldContext = oldContext;
         }
 
         @Override
         public void close() {
-            if (this.currentOtelTraceContext != null) {
-                currentOtelTraceContext.updateContext(oldContext);
-            }
             this.scope.close();
         }
 
